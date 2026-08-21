@@ -1,0 +1,591 @@
+// CULTTWENTY OUTBOUND — database schema
+// PostgreSQL + Prisma. See README.md for setup instructions.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Auth
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  role         String   @default("ADMIN")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  activityLogs ActivityLog[]
+
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// Settings (singleton row, id = "default")
+// ---------------------------------------------------------------------------
+
+model Settings {
+  id      String @id @default("default")
+
+  companyName    String @default("CultTwenty GmbH")
+  companyWebsite String @default("https://culttwenty.de")
+  positioning    String @default("Creative Production Company")
+  capabilities   String @default("Film, Design, AI, 3D, Digital")
+  targetProjectSize String @default("€10K–€50K+")
+
+  senderName  String @default("Louis")
+  senderEmail String @default("louis@culttwenty.de")
+  replyTo     String @default("louis@culttwenty.de")
+  signature   String @default("Louis\nCultTwenty")
+
+  pitchUrl String @default("https://culttwenty.de/pitch")
+
+  emailProvider String @default("mock") // mock | resend | sendgrid | smtp
+
+  sendWindowStart String @default("09:00")
+  sendWindowEnd   String @default("17:00")
+  sendDaysOfWeek  String @default("MON,TUE,WED,THU,FRI")
+  maxSendsPerDay  Int    @default(50)
+  minDelaySeconds Int    @default(30)
+  maxDelaySeconds Int    @default(180)
+
+  followup1Days Int @default(4)
+  followup2Days Int @default(9)
+  followup3Days Int @default(18)
+  followupsEnabled Boolean @default(true)
+
+  unsubscribeText String @default("If you'd rather not hear from us again, just reply \"unsubscribe\" and we'll stop right away.")
+
+  complianceAcknowledged   Boolean   @default(false)
+  complianceAcknowledgedAt DateTime?
+  complianceAcknowledgedBy String?
+
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}
+
+// ---------------------------------------------------------------------------
+// Companies & Contacts
+// ---------------------------------------------------------------------------
+
+model Company {
+  id          String  @id @default(cuid())
+  name        String
+  website     String?
+  industry    String?
+  country     String?
+  city        String?
+  sizeMin     Int?
+  sizeMax     Int?
+  description String? @db.Text
+
+  isDemo    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  contacts Contact[]
+  leads    Lead[]
+
+  @@index([name])
+  @@map("companies")
+}
+
+model Contact {
+  id          String  @id @default(cuid())
+  companyId   String
+  name        String?
+  role        String?
+  email       String?
+  linkedinUrl String?
+  source      String? // where the contact info was found
+  isDemo      Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  leads   Lead[]
+
+  @@index([companyId])
+  @@map("contacts")
+}
+
+// ---------------------------------------------------------------------------
+// Leads (the central object)
+// ---------------------------------------------------------------------------
+
+enum LeadStatus {
+  RESEARCH
+  QUALIFIED
+  CONTACTED
+  REPLIED
+  CALL
+  PROPOSAL
+  NEGOTIATION
+  WON
+  LOST
+  DO_NOT_CONTACT
+  REJECTED
+}
+
+enum LeadPipelineStatus {
+  QUEUED
+  RESEARCHING
+  SCORING
+  READY
+  FAILED
+}
+
+enum Grade {
+  A_PLUS
+  A
+  B
+  C
+  D
+}
+
+model Lead {
+  id        String @id @default(cuid())
+  companyId String
+  contactId String?
+
+  status         LeadStatus          @default(RESEARCH)
+  pipelineStatus LeadPipelineStatus  @default(QUEUED)
+  pipelineError  String?
+
+  score        Int?
+  grade        Grade?
+  doNotContact Boolean @default(false)
+
+  source            String  @default("manual") // manual | csv_import | lead_finder | demo
+  estimatedBudget   String?
+  opportunityValue  Int?
+  triggerText       String? @db.Text
+  triggerCategory   String?
+
+  isDemo Boolean @default(false)
+
+  lastContactedAt DateTime?
+  nextFollowUpAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact Contact? @relation(fields: [contactId], references: [id])
+
+  researchFacts    ResearchFact[]
+  researchSummary  ResearchSummary?
+  leadScore        LeadScore?
+  campaignLeads     CampaignLead[]
+  emailMessages     EmailMessage[]
+  replies           Reply[]
+  followups         Followup[]
+  opportunities     Opportunity[]
+  activityLogs      ActivityLog[]
+  pitchVisits       PitchVisit[]
+  notes             Note[]
+
+  @@index([status])
+  @@index([score])
+  @@index([companyId])
+  @@map("leads")
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  leadId    String
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@map("notes")
+}
+
+// ---------------------------------------------------------------------------
+// Research
+// ---------------------------------------------------------------------------
+
+enum Confidence {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+model ResearchFact {
+  id         String     @id @default(cuid())
+  leadId     String
+  factText   String     @db.Text
+  sourceUrl  String?
+  confidence Confidence @default(MEDIUM)
+  category   String     @default("other") // marketing_activity | recent_campaign | launch | social | website_quality | trigger | other
+  createdAt  DateTime   @default(now())
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@map("research_facts")
+}
+
+model ResearchSummary {
+  id             String   @id @default(cuid())
+  leadId         String   @unique
+  whatWeKnow     String   @db.Text
+  whatTheyMayNeed String  @db.Text
+  whyCulttwenty  String   @db.Text
+  outreachAngle  String   @db.Text
+  angle          String   @default("BRAND") // PRODUCT_LAUNCH | BRAND | CONTENT | AI | RECRUITING | DIGITAL
+  model          String?
+  generatedAt    DateTime @default(now())
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@map("research_summaries")
+}
+
+model LeadScore {
+  id                String   @id @default(cuid())
+  leadId            String   @unique
+  budgetPotential   Int      @default(0)
+  creativeNeed      Int      @default(0)
+  brandQuality      Int      @default(0)
+  marketingActivity Int      @default(0)
+  timing            Int      @default(0)
+  contactQuality    Int      @default(0)
+  total             Int      @default(0)
+  grade             Grade
+  computedAt        DateTime @default(now())
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@map("lead_scores")
+}
+
+// ---------------------------------------------------------------------------
+// Campaigns
+// ---------------------------------------------------------------------------
+
+enum CampaignStatus {
+  DRAFT
+  PENDING_APPROVAL
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+model Campaign {
+  id     String @id @default(cuid())
+  name   String
+  status CampaignStatus @default(DRAFT)
+
+  targetCountries  String? // comma separated
+  targetIndustries String? // comma separated
+  minScore         Int     @default(70)
+  angle            String  @default("AUTO")
+  pitchUrl         String?
+
+  sendWindowStart String @default("09:00")
+  sendWindowEnd   String @default("17:00")
+  sendDaysOfWeek  String @default("MON,TUE,WED,THU,FRI")
+  maxSendsPerDay  Int    @default(50)
+  minDelaySeconds Int    @default(30)
+  maxDelaySeconds Int    @default(180)
+  startAt         DateTime?
+
+  followup1Days Int @default(4)
+  followup2Days Int @default(9)
+  followup3Days Int @default(18)
+  followupsEnabled Boolean @default(true)
+
+  complianceConfirmed Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  campaignLeads CampaignLead[]
+  emailMessages EmailMessage[]
+  followups     Followup[]
+  activityLogs  ActivityLog[]
+  pitchVisits   PitchVisit[]
+
+  @@map("campaigns")
+}
+
+enum CampaignLeadStatus {
+  SELECTED
+  GENERATING
+  READY_FOR_REVIEW
+  APPROVED
+  REJECTED
+  QUEUED
+  SENT
+  FAILED
+}
+
+model CampaignLead {
+  id         String @id @default(cuid())
+  campaignId String
+  leadId     String
+
+  status           CampaignLeadStatus @default(SELECTED)
+  selectedVariant  String? // A | B | C
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  lead     Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, leadId])
+  @@index([campaignId])
+  @@map("campaign_leads")
+}
+
+// ---------------------------------------------------------------------------
+// Emails
+// ---------------------------------------------------------------------------
+
+enum EmailType {
+  INITIAL
+  FOLLOWUP_1
+  FOLLOWUP_2
+  FOLLOWUP_3
+}
+
+enum EmailStatus {
+  DRAFT
+  APPROVED
+  REJECTED
+  QUEUED
+  SENDING
+  SENT
+  DELIVERED
+  BOUNCED
+  FAILED
+}
+
+model EmailMessage {
+  id         String  @id @default(cuid())
+  leadId     String
+  campaignId String?
+
+  type    EmailType @default(INITIAL)
+  variant String    @default("A") // A | B | C
+
+  toEmail String
+  subject String
+  body    String @db.Text
+
+  angle      String?
+  confidence String?          // HIGH | MEDIUM | LOW
+  sources    String?          @db.Text // JSON array of source urls used
+
+  qualityCheck String? @db.Text // JSON: {factuality, personalization, length, tone, cta, spam, warnings[]}
+
+  status      EmailStatus @default(DRAFT)
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  approvedAt  DateTime?
+  editedAt    DateTime?
+
+  providerMessageId String?
+  providerResponse  String? @db.Text
+  error             String?
+  retryCount        Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lead     Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  campaign Campaign? @relation(fields: [campaignId], references: [id])
+
+  events    EmailEvent[]
+  replies   Reply[]
+  followups Followup[]
+
+  @@index([leadId])
+  @@index([campaignId])
+  @@index([status])
+  @@map("email_messages")
+}
+
+model EmailEvent {
+  id             String   @id @default(cuid())
+  emailMessageId String
+  type           String // sent | delivered | opened | bounced | complained | failed | clicked
+  payload        String?  @db.Text
+  createdAt      DateTime @default(now())
+
+  emailMessage EmailMessage @relation(fields: [emailMessageId], references: [id], onDelete: Cascade)
+
+  @@index([emailMessageId])
+  @@map("email_events")
+}
+
+// ---------------------------------------------------------------------------
+// Replies
+// ---------------------------------------------------------------------------
+
+enum ReplyCategory {
+  INTERESTED
+  MAYBE
+  NOT_NOW
+  NOT_INTERESTED
+  WRONG_PERSON
+  OUT_OF_OFFICE
+  UNSUBSCRIBE
+  NEGATIVE
+  HOT_LEAD
+  UNCATEGORIZED
+}
+
+model Reply {
+  id             String  @id @default(cuid())
+  leadId         String
+  emailMessageId String?
+
+  fromEmail String
+  subject   String?
+  body      String  @db.Text
+
+  category        ReplyCategory @default(UNCATEGORIZED)
+  isHot           Boolean       @default(false)
+  aiSummary       String?       @db.Text
+  suggestedAction String?       @db.Text
+  suggestedReply  String?       @db.Text
+
+  receivedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  lead         Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  emailMessage EmailMessage? @relation(fields: [emailMessageId], references: [id])
+
+  @@index([leadId])
+  @@map("replies")
+}
+
+// ---------------------------------------------------------------------------
+// Follow-ups
+// ---------------------------------------------------------------------------
+
+enum FollowupStatus {
+  SCHEDULED
+  SENT
+  SKIPPED
+  STOPPED
+}
+
+model Followup {
+  id         String @id @default(cuid())
+  leadId     String
+  campaignId String?
+
+  sequenceNumber Int // 1, 2, 3
+  scheduledAt    DateTime
+  status         FollowupStatus @default(SCHEDULED)
+  stopReason     String?
+
+  emailMessageId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lead         Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  campaign     Campaign?     @relation(fields: [campaignId], references: [id])
+  emailMessage EmailMessage? @relation(fields: [emailMessageId], references: [id])
+
+  @@index([leadId])
+  @@index([scheduledAt])
+  @@map("followups")
+}
+
+// ---------------------------------------------------------------------------
+// Opportunities & Suppression
+// ---------------------------------------------------------------------------
+
+enum OpportunityStage {
+  OPEN
+  WON
+  LOST
+}
+
+model Opportunity {
+  id     String @id @default(cuid())
+  leadId String
+
+  value Int
+  stage OpportunityStage @default(OPEN)
+
+  wonAt  DateTime?
+  lostAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@map("opportunities")
+}
+
+model SuppressionEntry {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  reason    String // unsubscribe | bounce | manual | complaint
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@map("suppression_list")
+}
+
+// ---------------------------------------------------------------------------
+// Activity log & pitch tracking
+// ---------------------------------------------------------------------------
+
+model ActivityLog {
+  id         String   @id @default(cuid())
+  leadId     String?
+  campaignId String?
+  userId     String?
+
+  action String // lead_created | research_completed | email_generated | email_edited | email_approved | email_sent | reply_received | followup_scheduled | lead_rejected | lead_unsubscribed | ...
+  meta   String? @db.Text
+
+  createdAt DateTime @default(now())
+
+  lead     Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  campaign Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  user     User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([leadId])
+  @@index([campaignId])
+  @@index([createdAt])
+  @@map("activity_log")
+}
+
+model PitchVisit {
+  id         String   @id @default(cuid())
+  leadId     String?
+  campaignId String?
+
+  referrer  String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  lead     Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  campaign Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@index([leadId])
+  @@map("pitch_visits")
+}
