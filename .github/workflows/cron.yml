@@ -11,6 +11,12 @@ jobs:
     steps:
       - name: POST /api/cron/process
         run: |
+          # Strip a trailing slash from APP_URL — otherwise this becomes
+          # "...vercel.app//api/cron/process" (double slash), Vercel 308s
+          # it to the single-slash form, and curl (no -L here) silently
+          # "succeeds" against the redirect response instead of the real
+          # endpoint, so nothing actually gets dispatched.
+          APP_URL="${APP_URL%/}"
           curl -sf -X POST "${APP_URL}/api/cron/process" \
             -H "Authorization: Bearer ${CRON_SECRET}"
         env:
