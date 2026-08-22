@@ -134,6 +134,7 @@ export function SettingsWorkspace({
   users: initialUsers,
   currentUserId,
   demoLeadCount: initialDemoLeadCount,
+  testLeadCount: initialTestLeadCount,
 }: {
   settings: SafeSettings;
   secrets: MaskedSecrets;
@@ -141,6 +142,7 @@ export function SettingsWorkspace({
   users: TeamUser[];
   currentUserId: string;
   demoLeadCount: number;
+  testLeadCount: number;
 }) {
   const [settings, setSettings] = useState(initialSettings);
   const [secrets, setSecrets] = useState(initialSecrets);
@@ -170,6 +172,8 @@ export function SettingsWorkspace({
 
   const [demoLeadCount, setDemoLeadCount] = useState(initialDemoLeadCount);
   const [clearingDemo, setClearingDemo] = useState(false);
+  const [testLeadCount, setTestLeadCount] = useState(initialTestLeadCount);
+  const [clearingTestLeads, setClearingTestLeads] = useState(false);
 
   async function save(section: string, patch: Record<string, unknown>) {
     setSaving(section);
@@ -282,6 +286,21 @@ export function SettingsWorkspace({
     }
   }
 
+  async function clearTestLeads() {
+    setClearingTestLeads(true);
+    try {
+      const res = await fetch("/api/leads/test-data", { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to clear test leads");
+      setTestLeadCount(0);
+      toast.success("Test leads cleared");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to clear test leads");
+    } finally {
+      setClearingTestLeads(false);
+    }
+  }
+
   return (
     <Tabs defaultValue="company">
       <TabsList className="flex-wrap">
@@ -376,6 +395,47 @@ export function SettingsWorkspace({
                       className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                     >
                       {clearingDemo && <Loader2 className="animate-spin" />} Clear demo data
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </CardContent>
+          </Card>
+        )}
+
+        {testLeadCount > 0 && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="text-sm">Test leads</CardTitle>
+              <CardDescription>
+                {testLeadCount} lead{testLeadCount === 1 ? "" : "s"} whose company name contains &quot;test&quot;
+                (e.g. from trying out manual lead creation) — separate from the demo data above.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" className="text-destructive hover:text-destructive">
+                    <Trash2 /> Delete test leads
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete all test leads?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Removes all {testLeadCount} lead{testLeadCount === 1 ? "" : "s"} whose company name contains
+                      &quot;test&quot;, and their contacts, research, and any campaign/message history. This can&apos;t
+                      be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={clearTestLeads}
+                      disabled={clearingTestLeads}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {clearingTestLeads && <Loader2 className="animate-spin" />} Delete test leads
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
