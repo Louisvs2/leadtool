@@ -17,8 +17,15 @@ jobs:
           # "succeeds" against the redirect response instead of the real
           # endpoint, so nothing actually gets dispatched.
           APP_URL="${APP_URL%/}"
-          curl -sf -X POST "${APP_URL}/api/cron/process" \
-            -H "Authorization: Bearer ${CRON_SECRET}"
+          response=$(curl -s -w '\n%{http_code}' -X POST "${APP_URL}/api/cron/process" \
+            -H "Authorization: Bearer ${CRON_SECRET}")
+          status="${response##*$'\n'}"
+          body="${response%$'\n'*}"
+          echo "$body"
+          if [ "$status" -ge 400 ]; then
+            echo "::error::Request failed with status $status"
+            exit 1
+          fi
         env:
           APP_URL: ${{ vars.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
