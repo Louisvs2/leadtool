@@ -7,7 +7,6 @@ import { buildLeadContext } from "@/lib/leads/context";
 import { generateAllEmailVariants } from "@/lib/email/generator";
 import { runEmailQualityCheck } from "@/lib/email/quality-check";
 import { getSettings } from "@/lib/settings";
-import { buildPitchTrackingUrl } from "@/lib/pitch";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -37,7 +36,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const settings = await getSettings();
     const senderSettings = {
       senderName: settings.senderName,
-      pitchUrl: buildPitchTrackingUrl(id),
+      pitchUrl: settings.pitchUrl,
       positioning: settings.positioning,
       capabilities: settings.capabilities,
       signature: settings.signature,

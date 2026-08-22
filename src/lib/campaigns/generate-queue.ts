@@ -5,7 +5,6 @@ import { buildLeadContext } from "@/lib/leads/context";
 import { generateAllEmailVariants } from "@/lib/email/generator";
 import { runEmailQualityCheck } from "@/lib/email/quality-check";
 import { getSettings } from "@/lib/settings";
-import { buildPitchTrackingUrl } from "@/lib/pitch";
 
 /**
  * Bulk-generates personalized outreach for a batch of SELECTED campaign
@@ -16,6 +15,7 @@ import { buildPitchTrackingUrl } from "@/lib/pitch";
 export async function processCampaignGeneration(campaignId: string, batchSize = 3) {
   const campaign = await prisma.campaign.findUniqueOrThrow({ where: { id: campaignId } }); // 404s cleanly if the campaign doesn't exist
   const settings = await getSettings();
+  const pitchUrl = campaign.pitchUrl || settings.pitchUrl;
 
   const batch = await prisma.campaignLead.findMany({
     where: { campaignId, status: "SELECTED" },
@@ -69,7 +69,7 @@ export async function processCampaignGeneration(campaignId: string, batchSize = 
 
     const senderSettings = {
       senderName: settings.senderName,
-      pitchUrl: buildPitchTrackingUrl(lead.id, campaignId),
+      pitchUrl,
       positioning: settings.positioning,
       capabilities: settings.capabilities,
       signature: settings.signature,

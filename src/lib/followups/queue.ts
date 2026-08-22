@@ -3,7 +3,7 @@ import { buildLeadContext } from "@/lib/leads/context";
 import { generateFollowupEmail } from "@/lib/email/generator";
 import { sendEmailMessage } from "@/lib/sending/dispatcher";
 import { stopFollowupsForLead } from "@/lib/followups/scheduler";
-import { buildPitchTrackingUrl } from "@/lib/pitch";
+import { resolvePitchUrl } from "@/lib/pitch";
 import { logActivity } from "@/lib/audit";
 
 /**
@@ -66,7 +66,7 @@ export async function processFollowupQueue(batchSize = 5) {
 
     const generated = await generateFollowupEmail(built.context, built.summary, sequenceNumber, {
       senderName: settings?.senderName ?? "Louis",
-      pitchUrl: buildPitchTrackingUrl(lead.id, followup.campaignId),
+      pitchUrl: await resolvePitchUrl(followup.campaignId),
       positioning: settings?.positioning ?? "Creative Production Company",
       capabilities: settings?.capabilities ?? "Film, Design, AI, 3D, Digital",
       signature: settings?.signature ?? "Louis\nCultTwenty",

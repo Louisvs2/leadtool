@@ -1,19 +1,23 @@
 import { env } from "@/lib/env";
+import { prisma } from "@/lib/prisma";
+import { getSettings } from "@/lib/settings";
 
 export function getAppBaseUrl(): string {
   return (env.AUTH_URL || "http://localhost:3000").replace(/\/$/, "");
 }
 
 /**
- * Builds a self-hosted tracking redirect for the pitch link (spec section
- * 33). The generated email embeds this URL instead of the raw pitch page —
- * clicking it logs a PitchVisit here, then 307-redirects to the real
- * destination, so click-through is measurable even though the destination
- * page itself lives outside this app.
+ * The URL to put in an outreach email's pitch link, in priority order:
+ * the campaign's own override, then the global default from Settings.
+ * Embedded directly (not behind a tracking redirect) so what's in the
+ * email — and what the reviewer sees before approving — is the real,
+ * recognizable destination rather than an internal-looking app URL.
  */
-export function buildPitchTrackingUrl(leadId: string, campaignId?: string | null): string {
-  const url = new URL("/api/pitch", getAppBaseUrl());
-  url.searchParams.set("lead", leadId);
-  if (campaignId) url.searchParams.set("campaign", campaignId);
-  return url.toString();
+export async function resolvePitchUrl(campaignId?: string | null): Promise<string> {
+  if (campaignId) {
+    const campaign = await prisma.campaign.findUnique({ where: { id: campaignId }, select: { pitchUrl: true } });
+    if (campaign?.pitchUrl) return campaign.pitchUrl;
+  }
+  const settings = await getSettings();
+  return settings.pitchUrl;
 }
