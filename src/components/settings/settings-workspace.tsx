@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Save, ShieldCheck, ShieldAlert, Trash2, Plus, ExternalLink, Dices, UserPlus } from "lucide-react";
+import { Loader2, Save, ShieldCheck, ShieldAlert, Trash2, Plus, ExternalLink, Dices, UserPlus, Eye, EyeOff, Copy } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -62,6 +62,8 @@ function SecretField({
   helpLabel?: string;
   canGenerate?: boolean;
 }) {
+  const [visible, setVisible] = useState(false);
+
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
@@ -78,14 +80,40 @@ function SecretField({
       </div>
       <div className="flex gap-2">
         <Input
-          type="password"
+          type={visible ? "text" : "password"}
           autoComplete="off"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={info.configured ? "•••••••••••• (leave blank to keep current)" : placeholder}
         />
+        <Button type="button" size="icon" variant="outline" title={visible ? "Hide" : "Show"} onClick={() => setVisible((v) => !v)}>
+          {visible ? <EyeOff /> : <Eye />}
+        </Button>
+        {value && (
+          <Button
+            type="button"
+            size="icon"
+            variant="outline"
+            title="Copy to clipboard"
+            onClick={async () => {
+              await navigator.clipboard.writeText(value);
+              toast.success("Copied");
+            }}
+          >
+            <Copy />
+          </Button>
+        )}
         {canGenerate && (
-          <Button type="button" size="icon" variant="outline" title="Generate a random value" onClick={() => onChange(generateSecret())}>
+          <Button
+            type="button"
+            size="icon"
+            variant="outline"
+            title="Generate a random value"
+            onClick={() => {
+              onChange(generateSecret());
+              setVisible(true);
+            }}
+          >
             <Dices />
           </Button>
         )}
