@@ -22,9 +22,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // "?force=1" bypasses each message's scheduledAt and sends the whole
+  // QUEUED backlog immediately — an explicit manual override, never set by
+  // the regular scheduled trigger, since it defeats the send-window pacing.
+  const force = new URL(request.url).searchParams.get("force") === "1";
+
   const [research, send, followups, outlookInbox] = await Promise.all([
     processResearchQueue(10),
-    processSendQueue(20),
+    processSendQueue(force ? 100 : 20, force),
     processFollowupQueue(10),
     pollOutlookInbox(),
   ]);

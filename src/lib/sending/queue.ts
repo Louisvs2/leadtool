@@ -7,10 +7,15 @@ import { sendEmailMessage } from "@/lib/sending/dispatcher";
  * scheduledAt by computeSendSchedule — this just fires whatever is due,
  * so it's safe to call frequently (e.g. every minute via cron/polling)
  * without causing a burst send.
+ *
+ * `ignoreSchedule` drops the scheduledAt filter, sending every QUEUED
+ * message regardless of its planned time — an explicit, user-triggered
+ * override (Settings/cron `?force=1`) for "send everything right now",
+ * not something the regular cron cadence ever sets.
  */
-export async function processSendQueue(batchSize = 10) {
+export async function processSendQueue(batchSize = 10, ignoreSchedule = false) {
   const due = await prisma.emailMessage.findMany({
-    where: { status: "QUEUED", scheduledAt: { lte: new Date() } },
+    where: { status: "QUEUED", ...(ignoreSchedule ? {} : { scheduledAt: { lte: new Date() } }) },
     orderBy: { scheduledAt: "asc" },
     take: batchSize,
     select: { id: true },

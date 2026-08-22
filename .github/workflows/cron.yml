@@ -3,7 +3,12 @@ name: Dispatch loop
 on:
   schedule:
     - cron: "*/5 * * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      force_send:
+        description: "Skip send-window pacing and dispatch the whole queue immediately"
+        type: boolean
+        default: false
 
 jobs:
   process:
@@ -17,7 +22,11 @@ jobs:
           # "succeeds" against the redirect response instead of the real
           # endpoint, so nothing actually gets dispatched.
           APP_URL="${APP_URL%/}"
-          response=$(curl -s -w '\n%{http_code}' -X POST "${APP_URL}/api/cron/process" \
+          url="${APP_URL}/api/cron/process"
+          if [ "$FORCE_SEND" = "true" ]; then
+            url="${url}?force=1"
+          fi
+          response=$(curl -s -w '\n%{http_code}' -X POST "$url" \
             -H "Authorization: Bearer ${CRON_SECRET}")
           status="${response##*$'\n'}"
           body="${response%$'\n'*}"
@@ -29,3 +38,4 @@ jobs:
         env:
           APP_URL: ${{ vars.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          FORCE_SEND: ${{ inputs.force_send }}
