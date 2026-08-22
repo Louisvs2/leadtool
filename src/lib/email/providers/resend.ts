@@ -1,15 +1,16 @@
 import { Resend } from "resend";
-import { env } from "@/lib/env";
+import { getEffectiveSecrets } from "@/lib/secrets";
 import type { EmailProvider, SendEmailInput, SendEmailResult } from "@/lib/email/types";
 import { textToHtml } from "@/lib/email/types";
 
 export const resendEmailProvider: EmailProvider = {
   name: "resend",
   async send(input: SendEmailInput): Promise<SendEmailResult> {
-    if (!env.RESEND_API_KEY) {
-      return { ok: false, error: "RESEND_API_KEY is not configured" };
+    const { resendApiKey } = await getEffectiveSecrets();
+    if (!resendApiKey) {
+      return { ok: false, error: "Resend API key is not configured (Settings → API Keys)" };
     }
-    const resend = new Resend(env.RESEND_API_KEY);
+    const resend = new Resend(resendApiKey);
     try {
       const { data, error } = await resend.emails.send({
         from: `${input.fromName} <${input.fromEmail}>`,

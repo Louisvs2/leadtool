@@ -1,15 +1,16 @@
 import sgMail from "@sendgrid/mail";
-import { env } from "@/lib/env";
+import { getEffectiveSecrets } from "@/lib/secrets";
 import type { EmailProvider, SendEmailInput, SendEmailResult } from "@/lib/email/types";
 import { textToHtml } from "@/lib/email/types";
 
 export const sendgridEmailProvider: EmailProvider = {
   name: "sendgrid",
   async send(input: SendEmailInput): Promise<SendEmailResult> {
-    if (!env.SENDGRID_API_KEY) {
-      return { ok: false, error: "SENDGRID_API_KEY is not configured" };
+    const { sendgridApiKey } = await getEffectiveSecrets();
+    if (!sendgridApiKey) {
+      return { ok: false, error: "SendGrid API key is not configured (Settings → API Keys)" };
     }
-    sgMail.setApiKey(env.SENDGRID_API_KEY);
+    sgMail.setApiKey(sendgridApiKey);
     try {
       const [response] = await sgMail.send({
         to: input.to,

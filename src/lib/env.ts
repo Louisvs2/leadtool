@@ -39,16 +39,5 @@ function loadEnv() {
 
 export const env = loadEnv();
 
-export const isAiConfigured = () => Boolean(env.OPENAI_API_KEY);
-export const isEmailProviderConfigured = () => {
-  switch (env.EMAIL_PROVIDER) {
-    case "resend":
-      return Boolean(env.RESEND_API_KEY);
-    case "sendgrid":
-      return Boolean(env.SENDGRID_API_KEY);
-    case "smtp":
-      return Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASSWORD);
-    default:
-      return true; // mock is always "configured"
-  }
-};
+// isAiConfigured / isEmailProviderConfigured live in @/lib/secrets — they
+// need to check Settings (DB) first, not just these env fallbacks.

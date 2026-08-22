@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CampaignStatusBadge } from "@/components/shared/status-badge";
+import { DeleteCampaignButton } from "@/components/campaigns/delete-campaign-button";
 import { computeCampaignStats } from "@/lib/campaigns/stats";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
@@ -55,7 +56,10 @@ export default async function CampaignsPage() {
                   <CardHeader>
                     <div className="flex items-start justify-between gap-2">
                       <CardTitle className="text-base">{campaign.name}</CardTitle>
-                      <CampaignStatusBadge status={campaign.status} />
+                      <div className="flex items-center gap-1">
+                        <CampaignStatusBadge status={campaign.status} />
+                        <DeleteCampaignButton campaignId={campaign.id} campaignName={campaign.name} />
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">

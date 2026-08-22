@@ -1,17 +1,13 @@
 import OpenAI from "openai";
-import { env, isAiConfigured } from "@/lib/env";
+import { getEffectiveSecrets } from "@/lib/secrets";
 
-let client: OpenAI | null = null;
-
-export function getOpenAI(): OpenAI | null {
-  if (!isAiConfigured()) return null;
-  if (!client) {
-    client = new OpenAI({ apiKey: env.OPENAI_API_KEY });
-  }
-  return client;
+export async function getOpenAI(): Promise<OpenAI | null> {
+  const secrets = await getEffectiveSecrets();
+  if (!secrets.openaiApiKey) return null;
+  // Constructed fresh per call (not module-cached) so a key saved via
+  // Settings → API Keys takes effect immediately, without a redeploy.
+  return new OpenAI({ apiKey: secrets.openaiApiKey });
 }
-
-export const AI_MODEL = env.OPENAI_MODEL;
 
 /**
  * Calls the model with a JSON-schema-constrained response and parses it.
@@ -23,12 +19,13 @@ export async function completeJson<T>(params: {
   user: string;
   temperature?: number;
 }): Promise<T | null> {
-  const openai = getOpenAI();
+  const openai = await getOpenAI();
   if (!openai) return null;
 
   try {
+    const secrets = await getEffectiveSecrets();
     const completion = await openai.chat.completions.create({
-      model: AI_MODEL,
+      model: secrets.openaiModel,
       temperature: params.temperature ?? 0.4,
       response_format: { type: "json_object" },
       messages: [

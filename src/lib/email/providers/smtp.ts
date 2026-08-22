@@ -1,19 +1,20 @@
 import nodemailer from "nodemailer";
-import { env } from "@/lib/env";
+import { getEffectiveSecrets } from "@/lib/secrets";
 import type { EmailProvider, SendEmailInput, SendEmailResult } from "@/lib/email/types";
 import { textToHtml } from "@/lib/email/types";
 
 export const smtpEmailProvider: EmailProvider = {
   name: "smtp",
   async send(input: SendEmailInput): Promise<SendEmailResult> {
-    if (!env.SMTP_HOST || !env.SMTP_USER || !env.SMTP_PASSWORD) {
-      return { ok: false, error: "SMTP is not fully configured (host/user/password)" };
+    const { smtp } = await getEffectiveSecrets();
+    if (!smtp.host || !smtp.user || !smtp.password) {
+      return { ok: false, error: "SMTP is not fully configured (host/user/password — Settings → API Keys)" };
     }
     const transporter = nodemailer.createTransport({
-      host: env.SMTP_HOST,
-      port: Number(env.SMTP_PORT) || 587,
-      secure: env.SMTP_SECURE === "true",
-      auth: { user: env.SMTP_USER, pass: env.SMTP_PASSWORD },
+      host: smtp.host,
+      port: Number(smtp.port) || 587,
+      secure: smtp.secure,
+      auth: { user: smtp.user, pass: smtp.password },
       // Explicitly disabled: the `raw` message option can be abused for SSRF
       // / arbitrary file access (CVE-class issue patched upstream). We never
       // pass `raw`, and disable file/url attachment access defense-in-depth.

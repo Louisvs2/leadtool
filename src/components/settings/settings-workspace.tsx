@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Save, ShieldCheck, ShieldAlert, Trash2, Plus } from "lucide-react";
+import { Loader2, Save, ShieldCheck, ShieldAlert, Trash2, Plus, ExternalLink, Dices, UserPlus } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,37 +14,136 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatDate } from "@/lib/utils";
 import type { Settings, SuppressionEntry } from "@prisma/client";
+import type { MaskedSecrets } from "@/lib/secrets";
 
 const DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 
+type SafeSettings = Omit<
+  Settings,
+  "openaiApiKey" | "resendApiKey" | "sendgridApiKey" | "smtpHost" | "smtpUser" | "smtpPassword" | "inboundWebhookSecret" | "cronSecret"
+>;
+
+type TeamUser = { id: string; email: string; name: string | null; role: string; createdAt: Date };
+
+function generateSecret() {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  return btoa(String.fromCharCode(...bytes)).replace(/[+/=]/g, "").slice(0, 32);
+}
+
+/** A write-only secret input: never pre-filled with the real value, shows a "configured" badge instead. */
+function SecretField({
+  label,
+  value,
+  onChange,
+  info,
+  placeholder = "Not set",
+  helpUrl,
+  helpLabel,
+  canGenerate = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  info: { configured: boolean; hint: string | null };
+  placeholder?: string;
+  helpUrl?: string;
+  helpLabel?: string;
+  canGenerate?: boolean;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <Label>{label}</Label>
+        {info.configured ? (
+          <Badge variant="success">
+            <ShieldCheck /> configured ({info.hint})
+          </Badge>
+        ) : (
+          <Badge variant="muted">
+            <ShieldAlert /> not set
+          </Badge>
+        )}
+      </div>
+      <div className="flex gap-2">
+        <Input
+          type="password"
+          autoComplete="off"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={info.configured ? "•••••••••••• (leave blank to keep current)" : placeholder}
+        />
+        {canGenerate && (
+          <Button type="button" size="icon" variant="outline" title="Generate a random value" onClick={() => onChange(generateSecret())}>
+            <Dices />
+          </Button>
+        )}
+      </div>
+      {helpUrl && (
+        <a href={helpUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground hover:underline">
+          <ExternalLink className="size-3" /> {helpLabel ?? "Where do I get this?"}
+        </a>
+      )}
+    </div>
+  );
+}
+
 export function SettingsWorkspace({
   settings: initialSettings,
+  secrets: initialSecrets,
   suppressionEntries: initialEntries,
-  providerStatus,
+  users: initialUsers,
+  currentUserId,
 }: {
-  settings: Settings;
+  settings: SafeSettings;
+  secrets: MaskedSecrets;
   suppressionEntries: SuppressionEntry[];
-  providerStatus: { ai: boolean; email: { mock: boolean; resend: boolean; sendgrid: boolean; smtp: boolean } };
+  users: TeamUser[];
+  currentUserId: string;
 }) {
   const [settings, setSettings] = useState(initialSettings);
+  const [secrets, setSecrets] = useState(initialSecrets);
   const [entries, setEntries] = useState(initialEntries);
+  const [users, setUsers] = useState(initialUsers);
   const [newEmail, setNewEmail] = useState("");
   const [saving, setSaving] = useState<string | null>(null);
 
-  async function save(section: string, patch: Partial<Settings>) {
+  // Draft values for write-only secret inputs — separate from `settings`
+  // so an empty draft never accidentally overwrites a saved key.
+  const [openaiApiKey, setOpenaiApiKey] = useState("");
+  const [resendApiKey, setResendApiKey] = useState("");
+  const [sendgridApiKey, setSendgridApiKey] = useState("");
+  const [smtpHost, setSmtpHost] = useState("");
+  const [smtpUser, setSmtpUser] = useState("");
+  const [smtpPassword, setSmtpPassword] = useState("");
+  const [inboundWebhookSecret, setInboundWebhookSecret] = useState("");
+  const [cronSecret, setCronSecret] = useState("");
+
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserPassword, setNewUserPassword] = useState("");
+  const [addingUser, setAddingUser] = useState(false);
+
+  async function save(section: string, patch: Record<string, unknown>) {
     setSaving(section);
     try {
+      // Never send an empty string for a secret field — omit it entirely so
+      // the API's "only overwrite if non-empty" rule has nothing to trip on.
+      const cleaned = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== ""));
       const res = await fetch("/api/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(patch),
+        body: JSON.stringify(cleaned),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to save");
       setSettings(data.settings);
+      setSecrets(data.secrets);
       toast.success("Saved");
+      return true;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to save");
+      return false;
     } finally {
       setSaving(null);
     }
@@ -78,13 +177,52 @@ export function SettingsWorkspace({
     }
   }
 
+  async function addUser() {
+    if (!newUserEmail.trim() || newUserPassword.length < 8) {
+      toast.error("Email and a password of at least 8 characters are required.");
+      return;
+    }
+    setAddingUser(true);
+    try {
+      const res = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: newUserEmail, name: newUserName || undefined, password: newUserPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to add user");
+      setUsers((prev) => [...prev, data.user]);
+      setNewUserEmail("");
+      setNewUserName("");
+      setNewUserPassword("");
+      toast.success(`${data.user.email} can now sign in`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to add user");
+    } finally {
+      setAddingUser(false);
+    }
+  }
+
+  async function removeUser(id: string) {
+    try {
+      const res = await fetch(`/api/users/${id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to remove user");
+      setUsers((prev) => prev.filter((u) => u.id !== id));
+      toast.success("User removed");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to remove user");
+    }
+  }
+
   return (
     <Tabs defaultValue="company">
       <TabsList className="flex-wrap">
         <TabsTrigger value="company">Company</TabsTrigger>
         <TabsTrigger value="sender">Sender &amp; Pitch</TabsTrigger>
         <TabsTrigger value="sending">Sending &amp; Follow-ups</TabsTrigger>
-        <TabsTrigger value="providers">Providers</TabsTrigger>
+        <TabsTrigger value="apikeys">API Keys</TabsTrigger>
+        <TabsTrigger value="team">Team ({users.length})</TabsTrigger>
         <TabsTrigger value="suppression">Suppression ({entries.length})</TabsTrigger>
       </TabsList>
 
@@ -288,68 +426,201 @@ export function SettingsWorkspace({
         </Card>
       </TabsContent>
 
-      <TabsContent value="providers" className="space-y-4 pt-4">
+      <TabsContent value="apikeys" className="space-y-4 pt-4">
+        <p className="text-sm text-muted-foreground">
+          Enter API keys here — they&apos;re saved securely on the server and never shown again after saving, only a
+          short hint so you know which key is active. Two exceptions stay in your hosting provider&apos;s environment
+          variables instead (<code>DATABASE_URL</code>, <code>AUTH_SECRET</code>) — the app needs those before it can
+          even reach its own database, so they&apos;re set once when you deploy, not here.
+        </p>
+
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">AI</CardTitle>
+            <CardTitle className="text-sm">AI (OpenAI)</CardTitle>
+            <CardDescription>Powers research summaries, scoring rationale and email copy. Without it, the app runs in a free deterministic Mock Mode instead — nothing breaks.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2 text-sm">
-              {providerStatus.ai ? (
-                <Badge variant="success">
-                  <ShieldCheck /> OpenAI configured
-                </Badge>
-              ) : (
-                <Badge variant="warning">
-                  <ShieldAlert /> Running in AI Mock Mode
-                </Badge>
-              )}
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Set <code>OPENAI_API_KEY</code> as an environment variable to enable live AI research summaries, scoring
-              rationale and email copy. API keys are never stored in the database or exposed to the browser.
-            </p>
+          <CardContent className="space-y-3">
+            <SecretField
+              label="OpenAI API key"
+              value={openaiApiKey}
+              onChange={setOpenaiApiKey}
+              info={secrets.openaiApiKey}
+              helpUrl="https://platform.openai.com/api-keys"
+              helpLabel="Get a key at platform.openai.com/api-keys"
+            />
+            <Button size="sm" onClick={async () => (await save("openai", { openaiApiKey })) && setOpenaiApiKey("")} disabled={saving !== null}>
+              {saving === "openai" ? <Loader2 className="animate-spin" /> : <Save />} Save
+            </Button>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Email provider</CardTitle>
+            <CardTitle className="text-sm">Email sending</CardTitle>
+            <CardDescription>Choose how outbound emails actually get sent.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4">
             <div className="space-y-1.5">
               <Label>Active provider</Label>
               <Select value={settings.emailProvider} onValueChange={(v) => setSettings({ ...settings, emailProvider: v })}>
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-52">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="mock">Mock (logs only)</SelectItem>
+                  <SelectItem value="mock">Mock — log only, don&apos;t send</SelectItem>
                   <SelectItem value="resend">Resend</SelectItem>
                   <SelectItem value="sendgrid">SendGrid</SelectItem>
                   <SelectItem value="smtp">SMTP</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-              {(["mock", "resend", "sendgrid", "smtp"] as const).map((p) => (
-                <div key={p} className="flex items-center gap-1.5 rounded-md border px-2.5 py-1.5">
-                  {providerStatus.email[p] ? (
-                    <ShieldCheck className="size-3.5 text-success" />
-                  ) : (
-                    <ShieldAlert className="size-3.5 text-muted-foreground" />
-                  )}
-                  <span className="capitalize">{p}</span>
+
+            {settings.emailProvider === "mock" && (
+              <p className="text-xs text-muted-foreground">Emails are logged, not actually sent — safe for testing the whole workflow.</p>
+            )}
+
+            {settings.emailProvider === "resend" && (
+              <SecretField
+                label="Resend API key"
+                value={resendApiKey}
+                onChange={setResendApiKey}
+                info={secrets.resendApiKey}
+                helpUrl="https://resend.com/api-keys"
+                helpLabel="Get a key at resend.com/api-keys"
+              />
+            )}
+
+            {settings.emailProvider === "sendgrid" && (
+              <SecretField
+                label="SendGrid API key"
+                value={sendgridApiKey}
+                onChange={setSendgridApiKey}
+                info={secrets.sendgridApiKey}
+                helpUrl="https://app.sendgrid.com/settings/api_keys"
+                helpLabel="Get a key at app.sendgrid.com/settings/api_keys"
+              />
+            )}
+
+            {settings.emailProvider === "smtp" && (
+              <div className="space-y-3 rounded-lg border p-3">
+                <SecretField label="SMTP host" value={smtpHost} onChange={setSmtpHost} info={secrets.smtpHost} placeholder="smtp.example.com" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Port</Label>
+                    <Input value={settings.smtpPort ?? ""} onChange={(e) => setSettings({ ...settings, smtpPort: e.target.value })} placeholder="587" />
+                  </div>
+                  <div className="flex items-end justify-between pb-2">
+                    <Label htmlFor="smtp-secure">Use TLS</Label>
+                    <Switch id="smtp-secure" checked={settings.smtpSecure} onCheckedChange={(v) => setSettings({ ...settings, smtpSecure: v })} />
+                  </div>
                 </div>
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Configure provider credentials via environment variables (RESEND_API_KEY, SENDGRID_API_KEY, or
-              SMTP_HOST/SMTP_USER/SMTP_PASSWORD) — see .env.example.
-            </p>
-            <Button size="sm" onClick={() => save("provider", { emailProvider: settings.emailProvider })} disabled={saving !== null}>
-              {saving === "provider" ? <Loader2 className="animate-spin" /> : <Save />} Save
+                <SecretField label="SMTP username" value={smtpUser} onChange={setSmtpUser} info={secrets.smtpUser} />
+                <SecretField label="SMTP password" value={smtpPassword} onChange={setSmtpPassword} info={secrets.smtpPassword} />
+              </div>
+            )}
+
+            <Button
+              size="sm"
+              onClick={async () =>
+                (await save("email-provider", {
+                  emailProvider: settings.emailProvider,
+                  smtpPort: settings.smtpPort,
+                  smtpSecure: settings.smtpSecure,
+                  resendApiKey,
+                  sendgridApiKey,
+                  smtpHost,
+                  smtpUser,
+                  smtpPassword,
+                })) &&
+                (setResendApiKey(""), setSendgridApiKey(""), setSmtpHost(""), setSmtpUser(""), setSmtpPassword(""))
+              }
+              disabled={saving !== null}
+            >
+              {saving === "email-provider" ? <Loader2 className="animate-spin" /> : <Save />} Save
             </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Webhooks &amp; scheduled sending</CardTitle>
+            <CardDescription>Self-chosen secrets — generate a random one and reuse it wherever your provider or scheduler asks for it.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <SecretField
+              label="Inbound webhook secret"
+              value={inboundWebhookSecret}
+              onChange={setInboundWebhookSecret}
+              info={secrets.inboundWebhookSecret}
+              canGenerate
+            />
+            <p className="-mt-2 text-xs text-muted-foreground">
+              Paste this into your email provider&apos;s inbound-parse / event webhook URL as{" "}
+              <code>?secret=...</code>, so replies and bounces reach <code>/api/inbound/email</code> and{" "}
+              <code>/api/inbound/events</code>.
+            </p>
+            <SecretField label="Cron secret" value={cronSecret} onChange={setCronSecret} info={secrets.cronSecret} canGenerate />
+            <p className="-mt-2 text-xs text-muted-foreground">
+              Authenticates the scheduled job that actually dispatches queued emails and follow-ups
+              (<code>/api/cron/process</code>) — used as an <code>Authorization: Bearer</code> header.
+            </p>
+            <Button
+              size="sm"
+              onClick={async () =>
+                (await save("webhooks", { inboundWebhookSecret, cronSecret })) &&
+                (setInboundWebhookSecret(""), setCronSecret(""))
+              }
+              disabled={saving !== null}
+            >
+              {saving === "webhooks" ? <Loader2 className="animate-spin" /> : <Save />} Save
+            </Button>
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      <TabsContent value="team" className="pt-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Team logins</CardTitle>
+            <CardDescription>Only people you add here can sign in — there&apos;s no public sign-up.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 gap-2 rounded-lg border p-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
+              <Input placeholder="Email" type="email" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} />
+              <Input placeholder="Name (optional)" value={newUserName} onChange={(e) => setNewUserName(e.target.value)} />
+              <Input placeholder="Password (min. 8 chars)" type="password" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} />
+              <Button onClick={addUser} disabled={addingUser}>
+                {addingUser ? <Loader2 className="animate-spin" /> : <UserPlus />} Add
+              </Button>
+            </div>
+
+            <ul className="divide-y">
+              {users.map((user) => {
+                const isSelf = user.id === currentUserId;
+                const isLast = users.length === 1;
+                return (
+                  <li key={user.id} className="flex items-center justify-between gap-2 py-2 text-sm">
+                    <div>
+                      <p className="font-medium">
+                        {user.name || user.email} {isSelf && <span className="text-xs text-muted-foreground">(you)</span>}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {user.email} · added {formatDate(user.createdAt)}
+                      </p>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      disabled={isSelf || isLast}
+                      title={isSelf ? "You can't remove yourself" : isLast ? "At least one user must remain" : "Remove"}
+                      onClick={() => removeUser(user.id)}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
           </CardContent>
         </Card>
       </TabsContent>

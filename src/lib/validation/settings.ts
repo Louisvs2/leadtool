@@ -16,6 +16,20 @@ export const settingsUpdateSchema = z.object({
 
   emailProvider: z.enum(["mock", "resend", "sendgrid", "smtp"]).optional(),
 
+  // Secrets: only set when the caller sends a non-empty string — the API
+  // route strips empty/undefined values before writing so re-saving other
+  // tabs never wipes a previously-configured key.
+  openaiApiKey: z.string().min(1).optional(),
+  resendApiKey: z.string().min(1).optional(),
+  sendgridApiKey: z.string().min(1).optional(),
+  smtpHost: z.string().min(1).optional(),
+  smtpPort: z.string().min(1).optional(),
+  smtpUser: z.string().min(1).optional(),
+  smtpPassword: z.string().min(1).optional(),
+  smtpSecure: z.boolean().optional(),
+  inboundWebhookSecret: z.string().min(1).optional(),
+  cronSecret: z.string().min(1).optional(),
+
   sendWindowStart: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   sendWindowEnd: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   sendDaysOfWeek: z.string().optional(),

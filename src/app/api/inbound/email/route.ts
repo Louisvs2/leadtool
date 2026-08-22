@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { env } from "@/lib/env";
+import { getEffectiveSecrets } from "@/lib/secrets";
 import { prisma } from "@/lib/prisma";
 import { recordReply } from "@/lib/reply/handler";
 
@@ -20,7 +20,8 @@ const schema = z.object({
  */
 export async function POST(request: NextRequest) {
   const secret = request.nextUrl.searchParams.get("secret");
-  if (!env.INBOUND_WEBHOOK_SECRET || secret !== env.INBOUND_WEBHOOK_SECRET) {
+  const { inboundWebhookSecret } = await getEffectiveSecrets();
+  if (!inboundWebhookSecret || secret !== inboundWebhookSecret) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

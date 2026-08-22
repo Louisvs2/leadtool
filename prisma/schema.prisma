@@ -50,6 +50,21 @@ model Settings {
 
   emailProvider String @default("mock") // mock | resend | sendgrid | smtp
 
+  // API keys / secrets — editable from Settings → API Keys. Nullable and
+  // never returned as plaintext by the API once set (see /api/settings);
+  // a null value here falls back to the matching environment variable
+  // (src/lib/secrets.ts), so env-based deploys keep working unchanged.
+  openaiApiKey         String?
+  resendApiKey         String?
+  sendgridApiKey       String?
+  smtpHost             String?
+  smtpPort             String?
+  smtpUser             String?
+  smtpPassword         String?
+  smtpSecure           Boolean @default(false)
+  inboundWebhookSecret String?
+  cronSecret           String?
+
   sendWindowStart String @default("09:00")
   sendWindowEnd   String @default("17:00")
   sendDaysOfWeek  String @default("MON,TUE,WED,THU,FRI")
@@ -408,7 +423,7 @@ model EmailMessage {
   updatedAt DateTime @updatedAt
 
   lead     Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  campaign Campaign? @relation(fields: [campaignId], references: [id])
+  campaign Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
 
   events    EmailEvent[]
   replies   Reply[]
@@ -502,7 +517,7 @@ model Followup {
   updatedAt DateTime @updatedAt
 
   lead         Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  campaign     Campaign?     @relation(fields: [campaignId], references: [id])
+  campaign     Campaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
   emailMessage EmailMessage? @relation(fields: [emailMessageId], references: [id])
 
   @@index([leadId])

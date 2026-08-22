@@ -9,6 +9,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { GenerationPanel } from "@/components/campaigns/generation-panel";
 import { CampaignReviewList } from "@/components/campaigns/campaign-review-list";
 import { SendPanel } from "@/components/campaigns/send-panel";
+import { DeleteCampaignButton } from "@/components/campaigns/delete-campaign-button";
 
 export default async function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -63,6 +64,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
           </div>
           <p className="text-sm text-muted-foreground">Created {formatDate(campaign.createdAt)}</p>
         </div>
+        <DeleteCampaignButton campaignId={campaign.id} campaignName={campaign.name} variant="full" />
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">

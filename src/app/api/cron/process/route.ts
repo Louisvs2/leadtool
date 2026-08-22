@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { env } from "@/lib/env";
+import { getEffectiveSecrets } from "@/lib/secrets";
 import { processSendQueue } from "@/lib/sending/queue";
 import { processFollowupQueue } from "@/lib/followups/queue";
 import { processResearchQueue } from "@/lib/research/queue";
@@ -11,11 +11,12 @@ import { processResearchQueue } from "@/lib/research/queue";
  * scheduler, not a signed-in browser.
  */
 export async function POST(request: NextRequest) {
-  if (!env.CRON_SECRET) {
+  const { cronSecret } = await getEffectiveSecrets();
+  if (!cronSecret) {
     return NextResponse.json({ error: "CRON_SECRET is not configured" }, { status: 503 });
   }
   const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${env.CRON_SECRET}`) {
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

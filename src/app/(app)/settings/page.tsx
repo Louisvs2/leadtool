@@ -1,29 +1,33 @@
 import { PageHeader } from "@/components/shared/page-header";
 import { getSettings } from "@/lib/settings";
 import { prisma } from "@/lib/prisma";
-import { env, isAiConfigured } from "@/lib/env";
+import { auth } from "@/lib/auth";
+import { maskSettingsForClient } from "@/lib/secrets";
 import { SettingsWorkspace } from "@/components/settings/settings-workspace";
 
 export default async function SettingsPage() {
-  const [settings, suppressionEntries] = await Promise.all([
+  const [settings, suppressionEntries, users, session] = await Promise.all([
     getSettings(),
     prisma.suppressionEntry.findMany({ orderBy: { createdAt: "desc" } }),
+    prisma.user.findMany({
+      orderBy: { createdAt: "asc" },
+      select: { id: true, email: true, name: true, role: true, createdAt: true },
+    }),
+    auth(),
   ]);
 
-  const providerStatus = {
-    ai: isAiConfigured(),
-    email: {
-      mock: true,
-      resend: Boolean(env.RESEND_API_KEY),
-      sendgrid: Boolean(env.SENDGRID_API_KEY),
-      smtp: Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASSWORD),
-    },
-  };
+  const { settings: safeSettings, secrets } = maskSettingsForClient(settings);
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Settings" description="CultTwenty company profile, sending limits, providers and compliance." />
-      <SettingsWorkspace settings={settings} suppressionEntries={suppressionEntries} providerStatus={providerStatus} />
+      <PageHeader title="Settings" description="CultTwenty company profile, sending limits, API keys, team and compliance." />
+      <SettingsWorkspace
+        settings={safeSettings}
+        secrets={secrets}
+        suppressionEntries={suppressionEntries}
+        users={users}
+        currentUserId={session?.user?.id ?? ""}
+      />
     </div>
   );
 }
