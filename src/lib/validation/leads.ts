@@ -44,6 +44,21 @@ export const leadUpdateSchema = z.object({
     .optional(),
   opportunityValue: z.coerce.number().int().nullable().optional(),
   nextFollowUpAt: z.string().datetime().nullable().optional(),
+
+  // Company/contact edits — same shape as manualLeadSchema's fields, all
+  // optional so a status-only PATCH (the common case) never has to send them.
+  companyName: z.string().min(1).optional(),
+  website: z.string().optional(),
+  industry: z.string().optional(),
+  country: z.string().optional(),
+  city: z.string().optional(),
+  companySizeMin: z.coerce.number().int().min(0).optional(),
+  companySizeMax: z.coerce.number().int().min(0).optional(),
+  description: z.string().optional(),
+  contactName: z.string().optional(),
+  contactRole: z.string().optional(),
+  contactEmail: z.string().email().optional().or(z.literal("")),
+  linkedinUrl: z.string().optional(),
 });
 
 export const noteSchema = z.object({
