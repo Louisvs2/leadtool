@@ -58,6 +58,21 @@ function firstName(name: string | null): string {
   return name.trim().split(/\s+/)[0];
 }
 
+const GERMAN_SPEAKING_COUNTRIES = new Set([
+  "germany",
+  "deutschland",
+  "austria",
+  "österreich",
+  "oesterreich",
+  "switzerland",
+  "schweiz",
+]);
+
+function isGermanSpeaking(country: string | null): boolean {
+  if (!country) return false;
+  return GERMAN_SPEAKING_COUNTRIES.has(country.trim().toLowerCase());
+}
+
 function buildSources(context: LeadContext): string[] {
   const urls = context.facts.map((f) => f.sourceUrl).filter((u): u is string => Boolean(u));
   return Array.from(new Set(urls));
@@ -66,24 +81,38 @@ function buildSources(context: LeadContext): string[] {
 function mockInitialEmail(context: LeadContext, variant: EmailVariantKey, summary: ResearchSummaryLike, sender: SenderSettings): GeneratedEmail {
   const name = firstName(context.contactName);
   const hasTrigger = context.triggerText && !context.triggerText.startsWith("UNKNOWN");
-  const observation = hasTrigger ? context.triggerText! : `how ${context.companyName} is approaching visual content right now`;
+  const german = isGermanSpeaking(context.country);
 
-  let opener: string;
   let body: string;
   let subject: string;
 
-  if (variant === "A") {
-    opener = `I came across ${observation} and had an idea for how it could be pushed visually.`;
-    body = `Hi ${name},\n\n${opener} We're CultTwenty — a creative production company combining film, design, AI and 3D.\n\nA quick overview of our work: ${sender.pitchUrl}\n\nIf that's relevant this year, happy to share a few concrete ideas.\n\n${sender.signature}`;
-    subject = `A creative thought for ${context.companyName}`;
-  } else if (variant === "B") {
-    opener = `${observation.charAt(0).toUpperCase()}${observation.slice(1)} — and it made me think there's room to push the visual side further.`;
-    body = `Hi ${name},\n\n${opener} CultTwenty produces film, design, AI and 3D work for brands moving fast on campaigns like this.\n\nHere's a quick look at what we do: ${sender.pitchUrl}\n\nWorth a short conversation if you're planning bigger creative work this year.\n\n${sender.signature}`;
-    subject = `${context.companyName} — a sharper visual direction`;
+  if (german) {
+    const observation = hasTrigger ? context.triggerText! : `wie ${context.companyName} das Thema visueller Content aktuell angeht`;
+    if (variant === "A") {
+      body = `Hallo ${name},\n\nich bin auf ${observation} gestoßen und hatte eine Idee, wie man das visuell noch stärker umsetzen könnte. Wir sind CultTwenty — eine Kreativproduktion aus Film, Design, KI und 3D.\n\nEin kurzer Überblick über unsere Arbeit: ${sender.pitchUrl}\n\nFalls das in diesem Jahr relevant ist, teile ich gerne ein paar konkrete Ideen.\n\n${sender.signature}`;
+      subject = `Ein kreativer Gedanke für ${context.companyName}`;
+    } else if (variant === "B") {
+      body = `Hallo ${name},\n\n${observation.charAt(0).toUpperCase()}${observation.slice(1)} — das hat mich auf die Idee gebracht, dass da visuell noch mehr geht. CultTwenty produziert Film, Design, KI und 3D für Marken, die bei Kampagnen wie dieser schnell unterwegs sind.\n\nEin kurzer Einblick in unsere Arbeit: ${sender.pitchUrl}\n\nLohnt sich ein kurzes Gespräch, falls größere Kreativprojekte anstehen.\n\n${sender.signature}`;
+      subject = `${context.companyName} — eine schärfere visuelle Richtung`;
+    } else {
+      body = `Hallo ${name},\n\nangesichts von ${observation} entsteht wahrscheinlich bald echter Produktionsbedarf — Assets, Content, vielleicht mehr. Wir helfen Marken wie ${context.companyName} dabei, ohne ein internes Team aufzubauen, und bringen Film, Design, KI und 3D unter einem Dach zusammen.\n\nÜberblick hier: ${sender.pitchUrl}\n\nGerne für ein kurzes Gespräch offen, falls hilfreich.\n\n${sender.signature}`;
+      subject = `Die Produktionsseite eurer nächsten Kampagne`;
+    }
   } else {
-    opener = `Given ${observation}, there's likely a real production need coming up — assets, content, maybe more.`;
-    body = `Hi ${name},\n\n${opener} We help brands like ${context.companyName} handle that without scaling an internal team, combining film, design, AI and 3D under one roof.\n\nOverview here: ${sender.pitchUrl}\n\nOpen to a short call if useful.\n\n${sender.signature}`;
-    subject = `Handling the production side of your next campaign`;
+    const observation = hasTrigger ? context.triggerText! : `how ${context.companyName} is approaching visual content right now`;
+    if (variant === "A") {
+      const opener = `I came across ${observation} and had an idea for how it could be pushed visually.`;
+      body = `Hi ${name},\n\n${opener} We're CultTwenty — a creative production company combining film, design, AI and 3D.\n\nA quick overview of our work: ${sender.pitchUrl}\n\nIf that's relevant this year, happy to share a few concrete ideas.\n\n${sender.signature}`;
+      subject = `A creative thought for ${context.companyName}`;
+    } else if (variant === "B") {
+      const opener = `${observation.charAt(0).toUpperCase()}${observation.slice(1)} — and it made me think there's room to push the visual side further.`;
+      body = `Hi ${name},\n\n${opener} CultTwenty produces film, design, AI and 3D work for brands moving fast on campaigns like this.\n\nHere's a quick look at what we do: ${sender.pitchUrl}\n\nWorth a short conversation if you're planning bigger creative work this year.\n\n${sender.signature}`;
+      subject = `${context.companyName} — a sharper visual direction`;
+    } else {
+      const opener = `Given ${observation}, there's likely a real production need coming up — assets, content, maybe more.`;
+      body = `Hi ${name},\n\n${opener} We help brands like ${context.companyName} handle that without scaling an internal team, combining film, design, AI and 3D under one roof.\n\nOverview here: ${sender.pitchUrl}\n\nOpen to a short call if useful.\n\n${sender.signature}`;
+      subject = `Handling the production side of your next campaign`;
+    }
   }
 
   return {
@@ -98,22 +127,34 @@ function mockInitialEmail(context: LeadContext, variant: EmailVariantKey, summar
 
 function mockFollowupEmail(context: LeadContext, sequenceNumber: number, sender: SenderSettings, previousSubject: string): GeneratedEmail {
   const name = firstName(context.contactName);
+  const german = isGermanSpeaking(context.country);
   let body: string;
-  let subject: string;
+  const subject = `Re: ${previousSubject}`;
 
-  if (sequenceNumber === 1) {
-    subject = `Re: ${previousSubject}`;
-    body = `Hi ${name},\n\nJust wanted to bump this in case it got buried.\n\n${sender.signature}`;
-  } else if (sequenceNumber === 2) {
-    subject = `Re: ${previousSubject}`;
-    const hasTrigger = context.triggerText && !context.triggerText.startsWith("UNKNOWN");
-    const extra = hasTrigger
-      ? `given ${context.triggerText}, there could be a good opportunity to build campaign assets around it`
-      : `there could be a good opportunity to bring film, design and AI together for your next campaign`;
-    body = `Hi ${name},\n\nOne additional thought: ${extra}.\n\n${sender.pitchUrl}\n\n${sender.signature}`;
+  if (german) {
+    if (sequenceNumber === 1) {
+      body = `Hallo ${name},\n\nwollte das nur nochmal nach oben holen, falls es untergegangen ist.\n\n${sender.signature}`;
+    } else if (sequenceNumber === 2) {
+      const hasTrigger = context.triggerText && !context.triggerText.startsWith("UNKNOWN");
+      const extra = hasTrigger
+        ? `angesichts von ${context.triggerText} könnte es eine gute Gelegenheit sein, Kampagnen-Assets darum herum aufzubauen`
+        : `es könnte eine gute Gelegenheit sein, Film, Design und KI für eure nächste Kampagne zusammenzubringen`;
+      body = `Hallo ${name},\n\nNoch ein Gedanke: ${extra}.\n\n${sender.pitchUrl}\n\n${sender.signature}`;
+    } else {
+      body = `Hallo ${name},\n\nletzte Nachricht von mir — falls Kreativproduktion gerade kein Thema ist, alles gut.\n\n${sender.signature}`;
+    }
   } else {
-    subject = `Re: ${previousSubject}`;
-    body = `Hi ${name},\n\nLast one from me — if creative production isn't on the agenda right now, no worries at all.\n\n${sender.signature}`;
+    if (sequenceNumber === 1) {
+      body = `Hi ${name},\n\nJust wanted to bump this in case it got buried.\n\n${sender.signature}`;
+    } else if (sequenceNumber === 2) {
+      const hasTrigger = context.triggerText && !context.triggerText.startsWith("UNKNOWN");
+      const extra = hasTrigger
+        ? `given ${context.triggerText}, there could be a good opportunity to build campaign assets around it`
+        : `there could be a good opportunity to bring film, design and AI together for your next campaign`;
+      body = `Hi ${name},\n\nOne additional thought: ${extra}.\n\n${sender.pitchUrl}\n\n${sender.signature}`;
+    } else {
+      body = `Hi ${name},\n\nLast one from me — if creative production isn't on the agenda right now, no worries at all.\n\n${sender.signature}`;
+    }
   }
 
   return {
@@ -137,8 +178,12 @@ async function aiCompose(params: {
 }): Promise<GeneratedEmail | null> {
   const [minWords, maxWords] = WORD_LIMITS[params.emailType];
   const isFollowup = params.emailType !== "INITIAL";
+  const writeInGerman = isGermanSpeaking(params.context.country);
+  const languageInstruction = writeInGerman
+    ? `Write the entire email — subject and body — in German. Use natural, professional business German (formal "Sie", not "Du").`
+    : `Write the entire email — subject and body — in English.`;
 
-  const system = `You write outbound email copy for CultTwenty, a creative production company. ${NO_HALLUCINATION_RULE}\n${CULTTWENTY_POSITIONING}\n${EMAIL_TONE_RULES}\n\n${
+  const system = `You write outbound email copy for CultTwenty, a creative production company. ${NO_HALLUCINATION_RULE}\n${CULTTWENTY_POSITIONING}\n${EMAIL_TONE_RULES}\n\n${languageInstruction}\n\n${
     isFollowup
       ? `This is follow-up #${params.sequenceNumber} in a sequence. It must NOT repeat the previous email's content — bring something new and small, stay low-pressure, and keep it noticeably shorter.`
       : `This is variant "${VARIANT_STYLE[params.variant].label}": ${VARIANT_STYLE[params.variant].instruction}`

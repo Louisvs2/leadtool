@@ -42,6 +42,14 @@ const LOW_PRESSURE_CTA_SIGNALS = [
   /let me know/i,
   /if (useful|relevant|helpful)/i,
   /no worries/i,
+  // German equivalents — the English-only list above always missed the CTA
+  // in a German-language email (see generator.ts's German output for
+  // German-speaking leads), flagging every one of them as "no CTA detected".
+  /gerne/i,
+  /falls (hilfreich|relevant|nützlich)/i,
+  /kein(e)? (thema|problem)/i,
+  /meld(e|et) (dich|euch)/i,
+  /lohnt sich/i,
   /\?\s*$/,
 ];
 
