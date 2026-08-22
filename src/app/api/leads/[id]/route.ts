@@ -40,8 +40,39 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const body = await request.json();
     const data = leadUpdateSchema.parse(body);
 
-    const existing = await prisma.lead.findUnique({ where: { id } });
+    const existing = await prisma.lead.findUnique({ where: { id }, include: { contact: true } });
     if (!existing) throw new ApiError("Lead not found", 404);
+
+    const companyFields = {
+      name: data.companyName,
+      website: data.website,
+      industry: data.industry,
+      country: data.country,
+      city: data.city,
+      sizeMin: data.companySizeMin,
+      sizeMax: data.companySizeMax,
+      description: data.description,
+    };
+    if (Object.values(companyFields).some((v) => v !== undefined)) {
+      await prisma.company.update({ where: { id: existing.companyId }, data: companyFields });
+    }
+
+    const contactFields = {
+      name: data.contactName,
+      role: data.contactRole,
+      email: data.contactEmail === "" ? null : data.contactEmail,
+      linkedinUrl: data.linkedinUrl,
+    };
+    if (Object.values(contactFields).some((v) => v !== undefined)) {
+      if (existing.contactId) {
+        await prisma.contact.update({ where: { id: existing.contactId }, data: contactFields });
+      } else {
+        const contact = await prisma.contact.create({
+          data: { companyId: existing.companyId, source: "manual", isDemo: false, ...contactFields },
+        });
+        await prisma.lead.update({ where: { id }, data: { contactId: contact.id } });
+      }
+    }
 
     const lead = await prisma.lead.update({
       where: { id },

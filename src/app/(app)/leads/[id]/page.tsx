@@ -8,6 +8,7 @@ import { DemoBadge } from "@/components/shared/demo-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LeadHeaderActions } from "@/components/leads/lead-header-actions";
+import { EditLeadDialog } from "@/components/leads/edit-lead-dialog";
 import { ResearchPanel } from "@/components/leads/research-panel";
 import { ScoreBreakdown } from "@/components/leads/score-breakdown";
 import { GenerateEmailPanel } from "@/components/leads/generate-email-panel";
@@ -74,7 +75,26 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
             </div>
           </div>
         </div>
-        <LeadHeaderActions leadId={lead.id} status={lead.status} />
+        <div className="flex items-start gap-2">
+          <EditLeadDialog
+            leadId={lead.id}
+            initial={{
+              companyName: lead.company.name ?? "",
+              website: lead.company.website ?? "",
+              industry: lead.company.industry ?? "",
+              country: lead.company.country ?? "",
+              city: lead.company.city ?? "",
+              companySizeMin: lead.company.sizeMin?.toString() ?? "",
+              companySizeMax: lead.company.sizeMax?.toString() ?? "",
+              description: lead.company.description ?? "",
+              contactName: lead.contact?.name ?? "",
+              contactRole: lead.contact?.role ?? "",
+              contactEmail: lead.contact?.email ?? "",
+              linkedinUrl: lead.contact?.linkedinUrl ?? "",
+            }}
+          />
+          <LeadHeaderActions leadId={lead.id} status={lead.status} />
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">

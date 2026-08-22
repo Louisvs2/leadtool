@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { LeadFinderDialog } from "@/components/leads/lead-finder-dialog";
 import { CsvImportDialog } from "@/components/leads/csv-import-dialog";
+import { AddLeadDialog } from "@/components/leads/add-lead-dialog";
 import { LeadsFilters } from "@/components/leads/leads-filters";
 import { LeadsExplorer } from "@/components/leads/leads-explorer";
 import { PipelineBoard } from "@/components/leads/pipeline-board";
@@ -31,6 +32,7 @@ export default async function LeadsPage({
         description={`${leads.length} lead${leads.length === 1 ? "" : "s"} matching your filters`}
         action={
           <>
+            <AddLeadDialog />
             <CsvImportDialog />
             <Button variant="outline" asChild>
               {/* File download, not a page route — a real <a> preserves the browser's native download handling. */}
