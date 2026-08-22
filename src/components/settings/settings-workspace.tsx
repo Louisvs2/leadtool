@@ -12,6 +12,17 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { formatDate } from "@/lib/utils";
 import type { Settings, SuppressionEntry } from "@prisma/client";
 import type { MaskedSecrets } from "@/lib/secrets";
@@ -94,12 +105,14 @@ export function SettingsWorkspace({
   suppressionEntries: initialEntries,
   users: initialUsers,
   currentUserId,
+  demoLeadCount: initialDemoLeadCount,
 }: {
   settings: SafeSettings;
   secrets: MaskedSecrets;
   suppressionEntries: SuppressionEntry[];
   users: TeamUser[];
   currentUserId: string;
+  demoLeadCount: number;
 }) {
   const [settings, setSettings] = useState(initialSettings);
   const [secrets, setSecrets] = useState(initialSecrets);
@@ -123,6 +136,9 @@ export function SettingsWorkspace({
   const [newUserName, setNewUserName] = useState("");
   const [newUserPassword, setNewUserPassword] = useState("");
   const [addingUser, setAddingUser] = useState(false);
+
+  const [demoLeadCount, setDemoLeadCount] = useState(initialDemoLeadCount);
+  const [clearingDemo, setClearingDemo] = useState(false);
 
   async function save(section: string, patch: Record<string, unknown>) {
     setSaving(section);
@@ -215,6 +231,21 @@ export function SettingsWorkspace({
     }
   }
 
+  async function clearDemoData() {
+    setClearingDemo(true);
+    try {
+      const res = await fetch("/api/demo-data", { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to clear demo data");
+      setDemoLeadCount(0);
+      toast.success("Demo data cleared");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to clear demo data");
+    } finally {
+      setClearingDemo(false);
+    }
+  }
+
   return (
     <Tabs defaultValue="company">
       <TabsList className="flex-wrap">
@@ -274,6 +305,48 @@ export function SettingsWorkspace({
             </Button>
           </CardContent>
         </Card>
+
+        {demoLeadCount > 0 && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="text-sm">Demo data</CardTitle>
+              <CardDescription>
+                {demoLeadCount} demo lead{demoLeadCount === 1 ? "" : "s"} from the first-run walkthrough are still
+                here, clearly labelled and safe (they can never be emailed) — but you&apos;ll want them gone once
+                you&apos;re working with real leads.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" className="text-destructive hover:text-destructive">
+                    <Trash2 /> Clear demo data
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Clear all demo data?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Removes all {demoLeadCount} demo leads and their companies, contacts, and research. Your real
+                      leads, campaigns, and settings are untouched — this only ever targets records flagged as demo.
+                      This can&apos;t be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={clearDemoData}
+                      disabled={clearingDemo}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {clearingDemo && <Loader2 className="animate-spin" />} Clear demo data
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </CardContent>
+          </Card>
+        )}
       </TabsContent>
 
       <TabsContent value="sender" className="pt-4">

@@ -24,6 +24,7 @@ export type AuditAction =
   | "campaign_approved"
   | "campaign_sent"
   | "campaign_deleted"
+  | "demo_data_cleared"
   | "note_added"
   | "opportunity_updated"
   | "settings_updated";

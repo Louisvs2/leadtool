@@ -6,7 +6,7 @@ import { maskSettingsForClient } from "@/lib/secrets";
 import { SettingsWorkspace } from "@/components/settings/settings-workspace";
 
 export default async function SettingsPage() {
-  const [settings, suppressionEntries, users, session] = await Promise.all([
+  const [settings, suppressionEntries, users, session, demoLeadCount] = await Promise.all([
     getSettings(),
     prisma.suppressionEntry.findMany({ orderBy: { createdAt: "desc" } }),
     prisma.user.findMany({
@@ -14,6 +14,7 @@ export default async function SettingsPage() {
       select: { id: true, email: true, name: true, role: true, createdAt: true },
     }),
     auth(),
+    prisma.lead.count({ where: { isDemo: true } }),
   ]);
 
   const { settings: safeSettings, secrets } = maskSettingsForClient(settings);
@@ -27,6 +28,7 @@ export default async function SettingsPage() {
         suppressionEntries={suppressionEntries}
         users={users}
         currentUserId={session?.user?.id ?? ""}
+        demoLeadCount={demoLeadCount}
       />
     </div>
   );
