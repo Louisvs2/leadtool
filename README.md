@@ -25,7 +25,8 @@ the app runs end-to-end with **zero external services configured**.
 
 | Variable | Required? | Purpose |
 | --- | --- | --- |
-| `DATABASE_URL` | **Yes** | PostgreSQL connection string |
+| `DATABASE_URL` | **Yes** | PostgreSQL connection string (pooled, if your provider offers one) |
+| `DIRECT_URL` | **Yes** | Direct/unpooled PostgreSQL connection string, used for schema pushes. Same value as `DATABASE_URL` unless your provider pools connections (e.g. Neon) |
 | `AUTH_SECRET` | **Yes** | Signs session cookies — generate with `openssl rand -base64 32` |
 | `AUTH_URL` | **Yes** (prod) | Public base URL of the deployed app; used to build the pitch-tracking link embedded in emails |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Yes, once | Used only by `npm run db:seed` to create the first admin user |
@@ -36,9 +37,12 @@ the app runs end-to-end with **zero external services configured**.
 | `LEAD_DISCOVERY_PROVIDER` | No (default `demo`) | `demo` \| `custom` — see §2 |
 | `CRON_SECRET` | For production sending | Authenticates the scheduled job that dispatches queued emails/follow-ups |
 
-API keys are **never** sent to the browser or stored in the database — every
-AI and email call happens server-side, reading credentials from environment
-variables only.
+Only `DATABASE_URL`, `DIRECT_URL`, and `AUTH_SECRET` need to be true
+environment variables (the app needs them before it can reach its own
+database). Every other row above can instead be set **after first login,
+from Settings → API Keys** — stored in the database, never sent back to the
+browser in plaintext once saved. Use env vars for those only if you'd rather
+configure them before the first login.
 
 ## 2. Data sources integrated
 
@@ -65,11 +69,13 @@ variables only.
 
 ## 3. Configuring email sending
 
-1. **Settings → Providers**: pick `resend`, `sendgrid`, or `smtp`, and set
-   the matching environment variables (`RESEND_API_KEY`, `SENDGRID_API_KEY`,
-   or `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD`). Leave it on
-   `mock` for local dev — it logs the send and marks it delivered without
-   any network call, so demos and testing are always safe.
+1. **Settings → API Keys**: pick `resend`, `sendgrid`, or `smtp` as the
+   active provider, and enter the matching credentials directly in the
+   form (`RESEND_API_KEY`, `SENDGRID_API_KEY`, or `SMTP_HOST`/`SMTP_PORT`/
+   `SMTP_USER`/`SMTP_PASSWORD`) — each field links to where to generate
+   the key. Leave it on `mock` for local dev — it logs the send and marks
+   it delivered without any network call, so demos and testing are always
+   safe.
 2. **Settings → Sender & Pitch**: set the sender name/email, reply-to, pitch
    URL, and default signature.
 3. **Sending limits** (Settings, or per-campaign): a window
@@ -78,9 +84,11 @@ variables only.
    gets a scheduled timestamp computed from these limits.
 4. **Dispatch loop**: queued emails and due follow-ups are sent by
    `POST /api/cron/process`, authenticated via
-   `Authorization: Bearer $CRON_SECRET`. `vercel.json` wires this to Vercel
-   Cron (every minute) — on another host, point any scheduler at that route
-   with the same header. Nothing sends without this loop running.
+   `Authorization: Bearer $CRON_SECRET`. `.github/workflows/cron.yml` calls
+   this route every 5 minutes via GitHub Actions (works on Vercel's free
+   Hobby plan, which only allows once-daily cron jobs on its own scheduler)
+   — on another host, point any scheduler at that route with the same
+   header instead. Nothing sends without this loop running.
 5. **Inbound replies / bounces** (optional but recommended): point your
    provider's inbound-parse and event webhooks at
    `POST /api/inbound/email?secret=$INBOUND_WEBHOOK_SECRET` (replies) and
@@ -151,6 +159,42 @@ Sign in with the `ADMIN_EMAIL` / `ADMIN_PASSWORD` from your `.env`.
 
 Other scripts: `npm run db:studio` (Prisma Studio), `npm run build` /
 `npm run start` (production), `npm run lint`.
+
+## Deploying to Vercel + Neon
+
+1. **Database**: create a free [Neon](https://neon.tech) project. On its
+   connection details panel, copy both the **pooled** connection string
+   (this becomes `DATABASE_URL`) and the **direct** one (this becomes
+   `DIRECT_URL`).
+2. **App**: on [Vercel](https://vercel.com), import this repository as a
+   new project. Under Project Settings → Environment Variables, set:
+   - `DATABASE_URL` — the pooled Neon string
+   - `DIRECT_URL` — the direct Neon string
+   - `AUTH_SECRET` — output of `openssl rand -base64 32`
+
+   Deploy. Everything else (OpenAI key, email provider, webhook/cron
+   secrets) is configured after login, from Settings → API Keys — nothing
+   else needs to go in Vercel's env vars.
+3. **Create the schema + admin user**: from a machine with this repo
+   cloned, point `.env` at the Neon `DIRECT_URL` (as both `DATABASE_URL`
+   and `DIRECT_URL` for this one-off step) and run:
+   ```bash
+   npm run db:push
+   npm run db:seed
+   ```
+4. **Fix the domain**: once Vercel has assigned/confirmed your domain, set
+   `AUTH_URL` (Vercel env vars) to `https://<your-domain>` and redeploy —
+   this is only used to build the pitch-tracking link in outbound emails.
+5. **Log in** with the seed `ADMIN_EMAIL` / `ADMIN_PASSWORD`, then go to
+   Settings → API Keys and enter your OpenAI key, email provider, and (via
+   the random-generate button) an inbound webhook secret and cron secret.
+6. **Wire up the dispatch loop**: in the GitHub repo's Settings → Secrets
+   and variables → Actions, add a repository **variable** `APP_URL` (your
+   Vercel domain, e.g. `https://your-app.vercel.app`) and a repository
+   **secret** `CRON_SECRET` matching the value you just saved in Settings →
+   API Keys. `.github/workflows/cron.yml` then pings `/api/cron/process`
+   every 5 minutes automatically — trigger it once manually (Actions tab →
+   "Dispatch loop" → Run workflow) to confirm it's wired correctly.
 
 ## Project structure
 
