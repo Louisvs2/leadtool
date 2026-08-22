@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
         angle: data.angle,
         pitchUrl: data.pitchUrl || settings.pitchUrl,
         minScore: data.minScore,
+        includeBelowThreshold: data.includeBelowThreshold,
         targetCountries: data.targetCountries,
         targetIndustries: data.targetIndustries,
         sendWindowStart: settings.sendWindowStart,

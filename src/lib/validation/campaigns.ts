@@ -6,6 +6,7 @@ export const createCampaignSchema = z.object({
   angle: z.string().default("AUTO"),
   pitchUrl: z.string().optional(),
   minScore: z.coerce.number().int().min(0).max(100).default(70),
+  includeBelowThreshold: z.boolean().default(false),
   targetCountries: z.string().optional(),
   targetIndustries: z.string().optional(),
 });
