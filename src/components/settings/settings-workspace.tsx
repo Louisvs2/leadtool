@@ -148,7 +148,12 @@ export function SettingsWorkspace({
     try {
       // Never send an empty string for a secret field — omit it entirely so
       // the API's "only overwrite if non-empty" rule has nothing to trip on.
-      const cleaned = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== ""));
+      // Also omit null/undefined: several optional Settings columns (e.g.
+      // smtpPort) have no DB default, so a card that echoes `settings.x`
+      // straight back into its own save call can otherwise submit a raw
+      // `null`, which fails validation even though the field was never
+      // touched by this save.
+      const cleaned = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== "" && v !== null && v !== undefined));
       const res = await fetch("/api/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
