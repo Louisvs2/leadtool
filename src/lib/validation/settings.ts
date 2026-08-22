@@ -14,7 +14,7 @@ export const settingsUpdateSchema = z.object({
 
   pitchUrl: z.string().optional(),
 
-  emailProvider: z.enum(["mock", "resend", "sendgrid", "smtp"]).optional(),
+  emailProvider: z.enum(["mock", "resend", "sendgrid", "smtp", "outlook"]).optional(),
 
   // Secrets: only set when the caller sends a non-empty string — the API
   // route strips empty/undefined values before writing so re-saving other
@@ -27,6 +27,10 @@ export const settingsUpdateSchema = z.object({
   smtpUser: z.string().min(1).optional(),
   smtpPassword: z.string().min(1).optional(),
   smtpSecure: z.boolean().optional(),
+  graphTenantId: z.string().min(1).optional(),
+  graphClientId: z.string().min(1).optional(),
+  graphClientSecret: z.string().min(1).optional(),
+  graphMailbox: z.string().min(1).optional(),
   inboundWebhookSecret: z.string().min(1).optional(),
   cronSecret: z.string().min(1).optional(),
 

@@ -15,6 +15,12 @@ export type EffectiveSecrets = {
     password: string;
     secure: boolean;
   };
+  graph: {
+    tenantId: string;
+    clientId: string;
+    clientSecret: string;
+    mailbox: string;
+  };
   inboundWebhookSecret: string;
   cronSecret: string;
 };
@@ -43,6 +49,12 @@ export async function getEffectiveSecrets(): Promise<EffectiveSecrets> {
       password: settings.smtpPassword || env.SMTP_PASSWORD,
       secure: settings.smtpPassword ? settings.smtpSecure : env.SMTP_SECURE === "true",
     },
+    graph: {
+      tenantId: settings.graphTenantId || env.GRAPH_TENANT_ID,
+      clientId: settings.graphClientId || env.GRAPH_CLIENT_ID,
+      clientSecret: settings.graphClientSecret || env.GRAPH_CLIENT_SECRET,
+      mailbox: settings.graphMailbox || env.GRAPH_MAILBOX,
+    },
     inboundWebhookSecret: settings.inboundWebhookSecret || env.INBOUND_WEBHOOK_SECRET,
     cronSecret: settings.cronSecret || env.CRON_SECRET,
   };
@@ -62,6 +74,8 @@ export async function isEmailProviderConfigured(): Promise<boolean> {
       return Boolean(secrets.sendgridApiKey);
     case "smtp":
       return Boolean(secrets.smtp.host && secrets.smtp.user && secrets.smtp.password);
+    case "outlook":
+      return Boolean(secrets.graph.tenantId && secrets.graph.clientId && secrets.graph.clientSecret && secrets.graph.mailbox);
     default:
       return true; // mock is always "configured"
   }
@@ -81,6 +95,9 @@ export const SECRET_FIELDS = [
   "smtpHost",
   "smtpUser",
   "smtpPassword",
+  "graphTenantId",
+  "graphClientId",
+  "graphClientSecret",
   "inboundWebhookSecret",
   "cronSecret",
 ] as const;

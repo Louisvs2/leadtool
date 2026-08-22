@@ -11,7 +11,7 @@ const envSchema = z.object({
   OPENAI_API_KEY: z.string().optional().default(""),
   OPENAI_MODEL: z.string().optional().default("gpt-4.1-mini"),
 
-  EMAIL_PROVIDER: z.enum(["mock", "resend", "sendgrid", "smtp"]).optional().default("mock"),
+  EMAIL_PROVIDER: z.enum(["mock", "resend", "sendgrid", "smtp", "outlook"]).optional().default("mock"),
   RESEND_API_KEY: z.string().optional().default(""),
   SENDGRID_API_KEY: z.string().optional().default(""),
   SMTP_HOST: z.string().optional().default(""),
@@ -20,6 +20,11 @@ const envSchema = z.object({
   SMTP_PASSWORD: z.string().optional().default(""),
   SMTP_SECURE: z.string().optional().default("false"),
   INBOUND_WEBHOOK_SECRET: z.string().optional().default(""),
+
+  GRAPH_TENANT_ID: z.string().optional().default(""),
+  GRAPH_CLIENT_ID: z.string().optional().default(""),
+  GRAPH_CLIENT_SECRET: z.string().optional().default(""),
+  GRAPH_MAILBOX: z.string().optional().default(""),
 
   LEAD_DISCOVERY_PROVIDER: z.enum(["demo", "custom"]).optional().default("demo"),
 

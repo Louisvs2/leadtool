@@ -3,6 +3,7 @@ import { mockEmailProvider } from "@/lib/email/providers/mock";
 import { resendEmailProvider } from "@/lib/email/providers/resend";
 import { sendgridEmailProvider } from "@/lib/email/providers/sendgrid";
 import { smtpEmailProvider } from "@/lib/email/providers/smtp";
+import { outlookEmailProvider } from "@/lib/email/providers/outlook";
 import type { EmailProvider } from "@/lib/email/types";
 
 const PROVIDERS: Record<string, EmailProvider> = {
@@ -10,6 +11,7 @@ const PROVIDERS: Record<string, EmailProvider> = {
   resend: resendEmailProvider,
   sendgrid: sendgridEmailProvider,
   smtp: smtpEmailProvider,
+  outlook: outlookEmailProvider,
 };
 
 /**

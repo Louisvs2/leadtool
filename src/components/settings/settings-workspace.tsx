@@ -29,10 +29,10 @@ import type { MaskedSecrets } from "@/lib/secrets";
 
 const DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 
-type SafeSettings = Omit<
-  Settings,
-  "openaiApiKey" | "resendApiKey" | "sendgridApiKey" | "smtpHost" | "smtpUser" | "smtpPassword" | "inboundWebhookSecret" | "cronSecret"
->;
+// Derived from MaskedSecrets' keys (== SECRET_FIELDS) rather than a second
+// hardcoded list, so this can't silently drift out of sync with what the
+// API actually strips.
+type SafeSettings = Omit<Settings, keyof MaskedSecrets>;
 
 type TeamUser = { id: string; email: string; name: string | null; role: string; createdAt: Date };
 
@@ -129,6 +129,9 @@ export function SettingsWorkspace({
   const [smtpHost, setSmtpHost] = useState("");
   const [smtpUser, setSmtpUser] = useState("");
   const [smtpPassword, setSmtpPassword] = useState("");
+  const [graphTenantId, setGraphTenantId] = useState("");
+  const [graphClientId, setGraphClientId] = useState("");
+  const [graphClientSecret, setGraphClientSecret] = useState("");
   const [inboundWebhookSecret, setInboundWebhookSecret] = useState("");
   const [cronSecret, setCronSecret] = useState("");
 
@@ -544,6 +547,7 @@ export function SettingsWorkspace({
                   <SelectItem value="resend">Resend</SelectItem>
                   <SelectItem value="sendgrid">SendGrid</SelectItem>
                   <SelectItem value="smtp">SMTP</SelectItem>
+                  <SelectItem value="outlook">Outlook (Microsoft 365)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -592,6 +596,38 @@ export function SettingsWorkspace({
               </div>
             )}
 
+            {settings.emailProvider === "outlook" && (
+              <div className="space-y-3 rounded-lg border p-3">
+                <div className="space-y-1 text-xs text-muted-foreground">
+                  <p>Sends and reads replies through your real Outlook/Microsoft 365 mailbox via an Azure app — no mailbox password needed. One-time setup:</p>
+                  <ol className="list-decimal space-y-0.5 pl-4">
+                    <li>
+                      At{" "}
+                      <a href="https://entra.microsoft.com" target="_blank" rel="noreferrer" className="underline hover:text-foreground">
+                        entra.microsoft.com
+                      </a>
+                      : App registrations → New registration (any name, single tenant)
+                    </li>
+                    <li>API permissions → Add a permission → Microsoft Graph → <strong>Application</strong> permissions → add <code>Mail.Send</code> and <code>Mail.Read</code> → Grant admin consent</li>
+                    <li>Certificates &amp; secrets → New client secret → copy its value immediately (shown once)</li>
+                    <li>Copy the Tenant ID and Client ID from the app&apos;s Overview page</li>
+                  </ol>
+                </div>
+                <SecretField label="Tenant ID" value={graphTenantId} onChange={setGraphTenantId} info={secrets.graphTenantId} />
+                <SecretField label="Client ID" value={graphClientId} onChange={setGraphClientId} info={secrets.graphClientId} />
+                <SecretField label="Client secret" value={graphClientSecret} onChange={setGraphClientSecret} info={secrets.graphClientSecret} />
+                <div className="space-y-1.5">
+                  <Label>Mailbox</Label>
+                  <Input
+                    value={settings.graphMailbox ?? ""}
+                    onChange={(e) => setSettings({ ...settings, graphMailbox: e.target.value })}
+                    placeholder="redaktion@culttwenty.de"
+                  />
+                  <p className="text-xs text-muted-foreground">The mailbox to send as and read replies from.</p>
+                </div>
+              </div>
+            )}
+
             <Button
               size="sm"
               onClick={async () =>
@@ -599,13 +635,24 @@ export function SettingsWorkspace({
                   emailProvider: settings.emailProvider,
                   smtpPort: settings.smtpPort,
                   smtpSecure: settings.smtpSecure,
+                  graphMailbox: settings.graphMailbox,
                   resendApiKey,
                   sendgridApiKey,
                   smtpHost,
                   smtpUser,
                   smtpPassword,
+                  graphTenantId,
+                  graphClientId,
+                  graphClientSecret,
                 })) &&
-                (setResendApiKey(""), setSendgridApiKey(""), setSmtpHost(""), setSmtpUser(""), setSmtpPassword(""))
+                (setResendApiKey(""),
+                setSendgridApiKey(""),
+                setSmtpHost(""),
+                setSmtpUser(""),
+                setSmtpPassword(""),
+                setGraphTenantId(""),
+                setGraphClientId(""),
+                setGraphClientSecret(""))
               }
               disabled={saving !== null}
             >

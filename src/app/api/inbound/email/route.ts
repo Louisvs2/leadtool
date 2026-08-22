@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getEffectiveSecrets } from "@/lib/secrets";
-import { prisma } from "@/lib/prisma";
 import { recordReply } from "@/lib/reply/handler";
+import { matchLeadForInboundEmail } from "@/lib/reply/match-lead";
 
 const schema = z.object({
   from: z.string().email(),
@@ -31,25 +31,7 @@ export async function POST(request: NextRequest) {
   }
   const { from, subject, text, inReplyToMessageId } = parsed.data;
 
-  let leadId: string | null = null;
-  let emailMessageId: string | undefined;
-
-  if (inReplyToMessageId) {
-    const message = await prisma.emailMessage.findFirst({ where: { providerMessageId: inReplyToMessageId } });
-    if (message) {
-      leadId = message.leadId;
-      emailMessageId = message.id;
-    }
-  }
-
-  if (!leadId) {
-    const contact = await prisma.contact.findFirst({
-      where: { email: from.toLowerCase() },
-      orderBy: { createdAt: "desc" },
-      include: { leads: { orderBy: { createdAt: "desc" }, take: 1 } },
-    });
-    leadId = contact?.leads[0]?.id ?? null;
-  }
+  const { leadId, emailMessageId } = await matchLeadForInboundEmail({ fromEmail: from, inReplyToMessageId });
 
   if (!leadId) {
     return NextResponse.json({ error: "NO MATCHING LEAD — could not associate this reply with a known contact." }, { status: 404 });

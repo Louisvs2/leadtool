@@ -49,7 +49,7 @@ model Settings {
 
   pitchUrl String @default("https://culttwenty.de/pitch")
 
-  emailProvider String @default("mock") // mock | resend | sendgrid | smtp
+  emailProvider String @default("mock") // mock | resend | sendgrid | smtp | outlook
 
   // API keys / secrets — editable from Settings → API Keys. Nullable and
   // never returned as plaintext by the API once set (see /api/settings);
@@ -65,6 +65,14 @@ model Settings {
   smtpSecure           Boolean @default(false)
   inboundWebhookSecret String?
   cronSecret           String?
+
+  // Microsoft Graph API (Azure App Registration) — send + poll-based
+  // inbound reply detection against a real Outlook/Microsoft 365 mailbox.
+  graphTenantId     String?
+  graphClientId     String?
+  graphClientSecret String?
+  graphMailbox      String? // e.g. redaktion@culttwenty.de — the mailbox to send as / read from
+  graphLastPolledAt DateTime? // inbound-poll cursor, not user-facing
 
   sendWindowStart String @default("09:00")
   sendWindowEnd   String @default("17:00")
