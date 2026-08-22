@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireSession, handleApiError, ApiError } from "@/lib/api-helpers";
 import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/audit";
+import { campaignPitchUrlSchema } from "@/lib/validation/campaigns";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -21,6 +22,26 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     });
     if (!campaign) throw new ApiError("Campaign not found", 404);
     return NextResponse.json({ campaign });
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+
+// The pitch link's actual destination is resolved live on every click (see
+// /api/pitch), not baked into an already-sent email's body — so unlike the
+// schedule fields, this stays editable after a campaign goes ACTIVE and
+// fixes the link for messages already sent, not just future ones.
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    await requireSession();
+    const { id } = await params;
+    const { pitchUrl } = campaignPitchUrlSchema.parse(await request.json());
+
+    const campaign = await prisma.campaign.findUnique({ where: { id } });
+    if (!campaign) throw new ApiError("Campaign not found", 404);
+
+    const updated = await prisma.campaign.update({ where: { id }, data: { pitchUrl } });
+    return NextResponse.json({ campaign: updated });
   } catch (error) {
     return handleApiError(error);
   }

@@ -135,6 +135,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
             followup3Days: campaign.followup3Days,
             followupsEnabled: campaign.followupsEnabled,
           }}
+          initialPitchUrl={campaign.pitchUrl ?? ""}
           initialCompliance={campaign.complianceConfirmed}
         />
       </section>

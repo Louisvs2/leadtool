@@ -27,3 +27,7 @@ export const campaignScheduleSchema = z.object({
 export const sendCampaignSchema = z.object({
   complianceConfirmed: z.literal(true),
 });
+
+export const campaignPitchUrlSchema = z.object({
+  pitchUrl: z.string().min(1),
+});

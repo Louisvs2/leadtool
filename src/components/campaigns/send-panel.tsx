@@ -29,6 +29,7 @@ export function SendPanel({
   approvedCount,
   queuedOrSentCount,
   initialSchedule,
+  initialPitchUrl,
   initialCompliance,
 }: {
   campaignId: string;
@@ -47,10 +48,13 @@ export function SendPanel({
     followup3Days: number;
     followupsEnabled: boolean;
   };
+  initialPitchUrl: string;
   initialCompliance: boolean;
 }) {
   const router = useRouter();
   const [schedule, setSchedule] = useState(initialSchedule);
+  const [pitchUrl, setPitchUrl] = useState(initialPitchUrl);
+  const [savingPitchUrl, setSavingPitchUrl] = useState(false);
   const [checked, setChecked] = useState<boolean[]>(new Array(COMPLIANCE_ITEMS.length).fill(initialCompliance));
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
@@ -96,6 +100,24 @@ export function SendPanel({
     }
   }
 
+  async function savePitchUrl() {
+    setSavingPitchUrl(true);
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pitchUrl }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Pitch link updated — applies immediately, even to already-sent emails");
+      router.refresh();
+    } catch {
+      toast.error("Failed to save pitch link");
+    } finally {
+      setSavingPitchUrl(false);
+    }
+  }
+
   async function handleProcessNow() {
     setProcessing(true);
     try {
@@ -112,6 +134,24 @@ export function SendPanel({
 
   return (
     <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Pitch link</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <p className="text-xs text-muted-foreground">
+            Where the tracked link in this campaign&apos;s emails redirects to. Unlike the schedule below, this stays
+            editable after sending and applies immediately — including to emails already sent.
+          </p>
+          <div className="flex gap-2">
+            <Input value={pitchUrl} onChange={(e) => setPitchUrl(e.target.value)} placeholder="https://deck.culttwenty.de" />
+            <Button size="sm" onClick={savePitchUrl} disabled={savingPitchUrl || !pitchUrl}>
+              {savingPitchUrl && <Loader2 className="animate-spin" />} Save
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-sm">Sending schedule</CardTitle>
