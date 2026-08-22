@@ -14,7 +14,17 @@ type GenerationState = {
   done: boolean;
 };
 
-export function GenerationPanel({ campaignId, selectedCount, readyOrDoneCount }: { campaignId: string; selectedCount: number; readyOrDoneCount: number }) {
+export function GenerationPanel({
+  campaignId,
+  selectedCount,
+  readyOrDoneCount,
+  failedCount,
+}: {
+  campaignId: string;
+  selectedCount: number;
+  readyOrDoneCount: number;
+  failedCount: number;
+}) {
   const router = useRouter();
   const [running, setRunning] = useState(false);
   const [state, setState] = useState<GenerationState | null>(null);
@@ -45,9 +55,17 @@ export function GenerationPanel({ campaignId, selectedCount, readyOrDoneCount }:
   }, [running, campaignId, router]);
 
   if (selectedCount === 0 && readyOrDoneCount > 0) {
+    const succeeded = readyOrDoneCount - failedCount;
     return (
-      <div className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/5 px-4 py-3 text-sm text-success">
-        <CheckCircle2 className="size-4" /> Outreach generated for all {readyOrDoneCount} leads.
+      <div
+        className={`flex items-center gap-2 rounded-lg border px-4 py-3 text-sm ${
+          failedCount > 0 ? "border-warning/30 bg-warning/5 text-warning" : "border-success/30 bg-success/5 text-success"
+        }`}
+      >
+        <CheckCircle2 className="size-4" />
+        {failedCount > 0
+          ? `Outreach generated for ${succeeded} of ${readyOrDoneCount} leads — ${failedCount} failed (see below).`
+          : `Outreach generated for all ${readyOrDoneCount} leads.`}
       </div>
     );
   }

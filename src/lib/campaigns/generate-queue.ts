@@ -31,20 +31,39 @@ export async function processCampaignGeneration(campaignId: string, batchSize = 
     if (lead.pipelineStatus !== "READY") {
       const result = await runLeadResearch(lead.id);
       if (!result.success) {
-        await prisma.campaignLead.update({ where: { id: campaignLead.id }, data: { status: "FAILED" } });
+        await prisma.campaignLead.update({
+          where: { id: campaignLead.id },
+          data: { status: "FAILED", failureReason: `Research failed: ${result.error}` },
+        });
         continue;
       }
     }
 
     const freshLead = await prisma.lead.findUniqueOrThrow({ where: { id: lead.id }, include: { contact: true } });
-    if ((freshLead.doNotContact && !campaign.includeBelowThreshold) || !freshLead.contact?.email) {
-      await prisma.campaignLead.update({ where: { id: campaignLead.id }, data: { status: "FAILED" } });
+    if (!freshLead.contact?.email) {
+      await prisma.campaignLead.update({
+        where: { id: campaignLead.id },
+        data: { status: "FAILED", failureReason: "No contact email on file" },
+      });
+      continue;
+    }
+    if (freshLead.doNotContact && !campaign.includeBelowThreshold) {
+      await prisma.campaignLead.update({
+        where: { id: campaignLead.id },
+        data: {
+          status: "FAILED",
+          failureReason: `Scored below 60 / DO NOT CONTACT (score ${freshLead.score ?? "?"}) — enable "include below threshold" on the campaign to reach out anyway`,
+        },
+      });
       continue;
     }
 
     const built = await buildLeadContext(lead.id);
     if (!built?.summary) {
-      await prisma.campaignLead.update({ where: { id: campaignLead.id }, data: { status: "FAILED" } });
+      await prisma.campaignLead.update({
+        where: { id: campaignLead.id },
+        data: { status: "FAILED", failureReason: "Research summary unavailable" },
+      });
       continue;
     }
 

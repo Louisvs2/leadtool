@@ -365,6 +365,7 @@ model CampaignLead {
 
   status           CampaignLeadStatus @default(SELECTED)
   selectedVariant  String? // A | B | C
+  failureReason    String? // set when status = FAILED, so the review page can explain why
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

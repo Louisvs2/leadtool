@@ -33,6 +33,9 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   const readyOrDoneCount = campaign.campaignLeads.filter((cl) => cl.status !== "SELECTED" && cl.status !== "GENERATING").length;
   const approvedCount = campaign.campaignLeads.filter((cl) => cl.status === "APPROVED").length;
   const queuedOrSentCount = campaign.campaignLeads.filter((cl) => cl.status === "QUEUED" || cl.status === "SENT").length;
+  const failedRows = campaign.campaignLeads
+    .filter((cl) => cl.status === "FAILED")
+    .map((cl) => ({ campaignLeadId: cl.id, companyName: cl.lead.company.name, reason: cl.failureReason ?? "Unknown error" }));
 
   const reviewRows = campaign.campaignLeads
     .filter((cl) => ["READY_FOR_REVIEW", "APPROVED", "REJECTED"].includes(cl.status))
@@ -89,7 +92,23 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
 
       <section className="space-y-3">
         <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Step 02–03 · Research &amp; Personalize</h2>
-        <GenerationPanel campaignId={campaign.id} selectedCount={selectedCount} readyOrDoneCount={readyOrDoneCount} />
+        <GenerationPanel campaignId={campaign.id} selectedCount={selectedCount} readyOrDoneCount={readyOrDoneCount} failedCount={failedRows.length} />
+        {failedRows.length > 0 && (
+          <Card className="border-destructive/30 bg-destructive/5">
+            <CardContent className="space-y-2 pt-6">
+              <p className="text-sm font-medium text-destructive">
+                {failedRows.length} lead{failedRows.length === 1 ? "" : "s"} could not be generated
+              </p>
+              <ul className="space-y-1 text-xs text-muted-foreground">
+                {failedRows.map((r) => (
+                  <li key={r.campaignLeadId}>
+                    <span className="font-medium text-foreground">{r.companyName}</span> — {r.reason}
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
       </section>
 
       <section className="space-y-3">
