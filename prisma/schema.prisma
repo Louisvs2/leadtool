@@ -313,11 +313,12 @@ model Campaign {
   name   String
   status CampaignStatus @default(DRAFT)
 
-  targetCountries  String? // comma separated
-  targetIndustries String? // comma separated
-  minScore         Int     @default(70)
-  angle            String  @default("AUTO")
-  pitchUrl         String?
+  targetCountries      String?  // comma separated
+  targetIndustries     String?  // comma separated
+  minScore             Int      @default(70)
+  includeBelowThreshold Boolean @default(false) // opt-in override: still generate outreach for leads scored below 60 (DO NOT CONTACT)
+  angle                String   @default("AUTO")
+  pitchUrl             String?
 
   sendWindowStart String @default("09:00")
   sendWindowEnd   String @default("17:00")
@@ -364,6 +365,7 @@ model CampaignLead {
 
   status           CampaignLeadStatus @default(SELECTED)
   selectedVariant  String? // A | B | C
+  failureReason    String? // set when status = FAILED, so the review page can explain why
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

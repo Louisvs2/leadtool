@@ -9,15 +9,22 @@ import { runEmailQualityCheck } from "@/lib/email/quality-check";
 import { getSettings } from "@/lib/settings";
 import { buildPitchTrackingUrl } from "@/lib/pitch";
 
-export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     await requireSession();
     const { id } = await params;
+    const body = await request.json().catch(() => ({}));
+    const confirmLowScore = body?.confirmLowScore === true;
 
     const lead = await prisma.lead.findUnique({ where: { id }, include: { contact: true } });
     if (!lead) throw new ApiError("Lead not found", 404);
     if (!lead.contact?.email) throw new ApiError("NO CONTACT FOUND — this lead has no business email on file.", 422);
-    if (lead.doNotContact) throw new ApiError("This lead is scored below 60 (DO NOT CONTACT) and cannot be emailed.", 422);
+    if (lead.doNotContact && !confirmLowScore) {
+      return NextResponse.json(
+        { error: "This lead is scored below 60 (DO NOT CONTACT). Confirm to reach out anyway.", requiresConfirmation: true },
+        { status: 409 },
+      );
+    }
 
     if (lead.pipelineStatus !== "READY") {
       const result = await runLeadResearch(id);
@@ -63,7 +70,11 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
       created.push(message);
     }
 
-    await logActivity({ action: "email_generated", leadId: id, meta: { variants: created.map((m) => m.variant) } });
+    await logActivity({
+      action: "email_generated",
+      leadId: id,
+      meta: { variants: created.map((m) => m.variant), ...(lead.doNotContact ? { lowScoreOverride: true } : {}) },
+    });
 
     return NextResponse.json({ messages: created });
   } catch (error) {

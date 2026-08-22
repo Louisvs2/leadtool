@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { TARGET_INDUSTRIES, COUNTRIES } from "@/lib/constants";
 import type { Prisma } from "@prisma/client";
 
@@ -32,6 +33,7 @@ export function NewCampaignForm({ preselectedLeads }: { preselectedLeads: Presel
   const [angle, setAngle] = useState("AUTO");
   const [pitchUrl, setPitchUrl] = useState("");
   const [minScore, setMinScore] = useState(70);
+  const [includeBelowThreshold, setIncludeBelowThreshold] = useState(false);
   const [leadCount, setLeadCount] = useState(50);
   const [countries, setCountries] = useState<string[]>([]);
   const [industries, setIndustries] = useState<string[]>([]);
@@ -81,6 +83,7 @@ export function NewCampaignForm({ preselectedLeads }: { preselectedLeads: Presel
           angle,
           pitchUrl: pitchUrl || undefined,
           minScore,
+          includeBelowThreshold,
           targetCountries: countries.join(","),
           targetIndustries: industries.join(","),
         }),
@@ -182,6 +185,17 @@ export function NewCampaignForm({ preselectedLeads }: { preselectedLeads: Presel
             <Label htmlFor="pitchUrl">Pitch link (optional override)</Label>
             <Input id="pitchUrl" value={pitchUrl} onChange={(e) => setPitchUrl(e.target.value)} placeholder="Uses default from Settings" />
           </div>
+        </div>
+
+        <div className="flex items-center justify-between rounded-lg border p-3">
+          <div className="space-y-0.5">
+            <Label htmlFor="includeBelowThreshold">Include leads below the contact threshold</Label>
+            <p className="text-xs text-muted-foreground">
+              Leads scored below 60 (DO NOT CONTACT) are normally skipped during generation. Turn this on only if
+              you&apos;ve reviewed those leads yourself and want to reach out anyway.
+            </p>
+          </div>
+          <Switch id="includeBelowThreshold" checked={includeBelowThreshold} onCheckedChange={setIncludeBelowThreshold} />
         </div>
 
         <Button onClick={handleSubmit} disabled={submitting} className="w-full">
