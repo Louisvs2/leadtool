@@ -50,7 +50,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
       selectedVariant: cl.selectedVariant,
       drafts: campaign.emailMessages
         .filter((m) => m.leadId === cl.lead.id && m.type === "INITIAL" && (m.status === "DRAFT" || m.status === "APPROVED"))
-        .map((m) => ({ id: m.id, variant: m.variant, subject: m.subject, body: m.body, qualityCheck: m.qualityCheck })),
+        .map((m) => ({ id: m.id, variant: m.variant, subject: m.subject, body: m.body, qualityCheck: m.qualityCheck, generatedBy: m.generatedBy })),
     }));
 
   return (

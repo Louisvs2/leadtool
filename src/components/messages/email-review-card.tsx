@@ -26,6 +26,7 @@ export type EmailReviewMessage = {
   confidence: string | null;
   sources: string | null;
   qualityCheck: string | null;
+  generatedBy: string;
 };
 
 export function EmailReviewCard({
@@ -138,6 +139,9 @@ export function EmailReviewCard({
           <Badge variant="outline">Variant {message.variant}</Badge>
           <Badge variant="muted">{message.type.replace(/_/g, " ")}</Badge>
           {message.confidence && <Badge variant="muted">Confidence: {message.confidence}</Badge>}
+          <Badge variant={message.generatedBy === "openai" ? "success" : "warning"}>
+            {message.generatedBy === "openai" ? "AI" : "Mock"}
+          </Badge>
         </div>
         <EmailStatusBadge status={message.status} />
       </div>

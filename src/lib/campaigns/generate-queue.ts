@@ -96,6 +96,7 @@ export async function processCampaignGeneration(campaignId: string, batchSize = 
           confidence: variant.confidence,
           sources: JSON.stringify(variant.sources),
           qualityCheck: JSON.stringify(qc),
+          generatedBy: variant.model,
           status: "DRAFT",
         },
       });

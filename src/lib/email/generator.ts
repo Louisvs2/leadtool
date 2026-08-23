@@ -78,6 +78,29 @@ function buildSources(context: LeadContext): string[] {
   return Array.from(new Set(urls));
 }
 
+// context.triggerText is always one of trigger-detection.ts's fixed English
+// phrases (or null) — it's never actually written in German, so the mock
+// templates below must translate it rather than interpolate it directly.
+// Every entry is a nominative-case noun phrase so it can be dropped into a
+// sentence as the grammatical subject without needing to be re-declined.
+const TRIGGER_PHRASE_DE: Record<string, string> = {
+  "a new product or collection launch": "eine neue Produkt- oder Kollektionseinführung",
+  "recent launch activity": "aktuelle Launch-Aktivitäten",
+  "an active marketing campaign": "eine laufende Marketingkampagne",
+  "a rebranding effort": "ein Rebranding-Prozess",
+  "an expansion into new markets": "eine Expansion in neue Märkte",
+  "a new store or location opening": "die Eröffnung eines neuen Standorts",
+  "a recent funding round": "eine kürzliche Finanzierungsrunde",
+  "an active recruiting push": "eine aktive Recruiting-Offensive",
+  "an upcoming event or activation": "ein bevorstehendes Event",
+  "a sustainability-focused campaign": "eine nachhaltigkeitsfokussierte Kampagne",
+};
+
+function germanTriggerPhrase(triggerText: string | null | undefined): string | null {
+  if (!triggerText) return null;
+  return TRIGGER_PHRASE_DE[triggerText] ?? "einiges an aktueller Aktivität";
+}
+
 function mockInitialEmail(context: LeadContext, variant: EmailVariantKey, summary: ResearchSummaryLike, sender: SenderSettings): GeneratedEmail {
   const name = firstName(context.contactName);
   const hasTrigger = context.triggerText && !context.triggerText.startsWith("UNKNOWN");
@@ -87,15 +110,18 @@ function mockInitialEmail(context: LeadContext, variant: EmailVariantKey, summar
   let subject: string;
 
   if (german) {
-    const observation = hasTrigger ? context.triggerText! : `wie ${context.companyName} das Thema visueller Content aktuell angeht`;
+    // Always nominative-case so it can be used as a sentence subject below
+    // without needing per-slot case agreement (accusative after "auf",
+    // dative after "von", ...) — see germanTriggerPhrase / TRIGGER_PHRASE_DE.
+    const observation = (hasTrigger && germanTriggerPhrase(context.triggerText)) || `der aktuelle Auftritt visueller Content bei ${context.companyName}`;
     if (variant === "A") {
-      body = `Hallo ${name},\n\nich bin auf ${observation} gestoßen und hatte eine Idee, wie man das visuell noch stärker umsetzen könnte. Wir sind CultTwenty — eine Kreativproduktion aus Film, Design, KI und 3D.\n\nEin kurzer Überblick über unsere Arbeit: ${sender.pitchUrl}\n\nFalls das in diesem Jahr relevant ist, teile ich gerne ein paar konkrete Ideen.\n\n${sender.signature}`;
+      body = `Hallo ${name},\n\nmir ist aufgefallen: ${observation} bei ${context.companyName}. Das hat mich auf eine Idee gebracht, wie man das visuell noch stärker umsetzen könnte. Wir sind CultTwenty — eine Kreativproduktion aus Film, Design, KI und 3D.\n\nEin kurzer Überblick über unsere Arbeit: ${sender.pitchUrl}\n\nFalls das in diesem Jahr relevant ist, teile ich gerne ein paar konkrete Ideen.\n\n${sender.signature}`;
       subject = `Ein kreativer Gedanke für ${context.companyName}`;
     } else if (variant === "B") {
-      body = `Hallo ${name},\n\n${observation.charAt(0).toUpperCase()}${observation.slice(1)} — das hat mich auf die Idee gebracht, dass da visuell noch mehr geht. CultTwenty produziert Film, Design, KI und 3D für Marken, die bei Kampagnen wie dieser schnell unterwegs sind.\n\nEin kurzer Einblick in unsere Arbeit: ${sender.pitchUrl}\n\nLohnt sich ein kurzes Gespräch, falls größere Kreativprojekte anstehen.\n\n${sender.signature}`;
+      body = `Hallo ${name},\n\n${observation} bei ${context.companyName} — das hat mich auf die Idee gebracht, dass da visuell noch mehr geht. CultTwenty produziert Film, Design, KI und 3D für Marken, die bei Kampagnen wie dieser schnell unterwegs sind.\n\nEin kurzer Einblick in unsere Arbeit: ${sender.pitchUrl}\n\nLohnt sich ein kurzes Gespräch, falls größere Kreativprojekte anstehen.\n\n${sender.signature}`;
       subject = `${context.companyName} — eine schärfere visuelle Richtung`;
     } else {
-      body = `Hallo ${name},\n\nangesichts von ${observation} entsteht wahrscheinlich bald echter Produktionsbedarf — Assets, Content, vielleicht mehr. Wir helfen Marken wie ${context.companyName} dabei, ohne ein internes Team aufzubauen, und bringen Film, Design, KI und 3D unter einem Dach zusammen.\n\nÜberblick hier: ${sender.pitchUrl}\n\nGerne für ein kurzes Gespräch offen, falls hilfreich.\n\n${sender.signature}`;
+      body = `Hallo ${name},\n\nweil bei ${context.companyName} gerade ${observation} ansteht, entsteht wahrscheinlich bald echter Produktionsbedarf — Assets, Content, vielleicht mehr. Wir helfen Marken wie ${context.companyName} dabei, ohne ein internes Team aufzubauen, und bringen Film, Design, KI und 3D unter einem Dach zusammen.\n\nÜberblick hier: ${sender.pitchUrl}\n\nGerne für ein kurzes Gespräch offen, falls hilfreich.\n\n${sender.signature}`;
       subject = `Die Produktionsseite eurer nächsten Kampagne`;
     }
   } else {

@@ -63,6 +63,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           confidence: variant.confidence,
           sources: JSON.stringify(variant.sources),
           qualityCheck: JSON.stringify(qc),
+          generatedBy: variant.model,
           status: "DRAFT",
         },
       });

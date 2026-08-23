@@ -2,6 +2,7 @@ import { completeJson } from "@/lib/ai/client";
 import { BANNED_PHRASES } from "@/lib/ai/prompts";
 import { wordCount } from "@/lib/utils";
 import { WORD_LIMITS, type EmailType } from "@/lib/email/generator";
+import { getEffectiveSecrets } from "@/lib/secrets";
 import type { LeadContext } from "@/types/domain";
 
 export type QualityCheckField = { pass: boolean; note: string };
@@ -129,11 +130,20 @@ export async function runEmailQualityCheck(params: {
   const personalization = checkPersonalization(params.body, params.context);
 
   const aiFactuality = await checkFactualityWithAi(params.body, params.context);
-  const factuality: QualityCheckField =
-    aiFactuality ?? {
-      pass: true,
-      note: "AI factuality check unavailable (no API key configured) — recommend a manual review before sending.",
-    };
+  let factuality: QualityCheckField;
+  if (aiFactuality) {
+    factuality = aiFactuality;
+  } else {
+    const { openaiApiKey } = await getEffectiveSecrets();
+    // A configured key that still produced no result means the OpenAI call
+    // itself failed (bad key, no billing/credit, rate limit, etc.) — surface
+    // that as a real warning rather than the same message as "no key set",
+    // since a silent fallback to mock copy here is exactly the kind of thing
+    // that goes unnoticed for a while otherwise.
+    factuality = openaiApiKey
+      ? { pass: false, note: "AI call failed even though a key is configured — check your OpenAI billing/credit and the key's validity in Settings. This email was generated in Mock Mode, not by AI." }
+      : { pass: true, note: "AI factuality check unavailable (no API key configured) — recommend a manual review before sending." };
+  }
 
   const warnings: string[] = [];
   for (const [key, field] of Object.entries({ factuality, personalization, length, tone, cta, spam })) {

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Check, X, ChevronDown, ChevronUp, Loader2, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScoreBadge } from "@/components/shared/score-badge";
 import { CampaignLeadStatusBadge } from "@/components/shared/status-badge";
@@ -20,6 +21,7 @@ type Draft = {
   subject: string;
   body: string;
   qualityCheck: string | null;
+  generatedBy: string;
 };
 
 export function CampaignLeadReviewRow({
@@ -133,9 +135,12 @@ export function CampaignLeadReviewRow({
           )}
 
           <div className="space-y-1 text-sm">
-            <p>
+            <p className="flex items-center gap-2">
               <span className="text-muted-foreground">Subject: </span>
               <span className="font-medium">{active.subject}</span>
+              <Badge variant={active.generatedBy === "openai" ? "success" : "warning"}>
+                {active.generatedBy === "openai" ? "AI" : "Mock"}
+              </Badge>
             </p>
           </div>
           <div className="rounded-lg bg-muted/40 p-4 text-sm whitespace-pre-wrap">{active.body}</div>

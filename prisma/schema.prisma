@@ -416,6 +416,7 @@ model EmailMessage {
   angle      String?
   confidence String?          // HIGH | MEDIUM | LOW
   sources    String?          @db.Text // JSON array of source urls used
+  generatedBy String @default("mock") // "openai" | "mock" — which path actually wrote this copy
 
   qualityCheck String? @db.Text // JSON: {factuality, personalization, length, tone, cta, spam, warnings[]}
 

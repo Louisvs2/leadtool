@@ -85,6 +85,7 @@ export async function processFollowupQueue(batchSize = 5) {
         angle: generated.angle,
         confidence: generated.confidence,
         sources: JSON.stringify(generated.sources),
+        generatedBy: generated.model,
         status: "QUEUED",
         scheduledAt: new Date(),
         approvedAt: new Date(),

@@ -53,6 +53,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
         confidence: generated.confidence,
         sources: JSON.stringify(generated.sources),
         qualityCheck: JSON.stringify(qc),
+        generatedBy: generated.model,
         editedAt: new Date(),
       },
     });

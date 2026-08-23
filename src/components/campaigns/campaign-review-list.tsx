@@ -19,7 +19,7 @@ type Row = {
   contactEmail: string | null;
   status: CampaignLeadStatus;
   selectedVariant: string | null;
-  drafts: { id: string; variant: string; subject: string; body: string; qualityCheck: string | null }[];
+  drafts: { id: string; variant: string; subject: string; body: string; qualityCheck: string | null; generatedBy: string }[];
 };
 
 export function CampaignReviewList({ campaignId, rows }: { campaignId: string; rows: Row[] }) {
